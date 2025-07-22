@@ -18,7 +18,7 @@ from defaults import DEFAULT_CONFIG
 
 HERE         = os.path.dirname(__file__)
 CONFIG_FILE  = os.path.join(HERE, 'config.json')
-MON_INTERVAL = 30
+MON_INTERVAL = 2
 DOUBLE_INT   = 0.5
 
 # Se executado via PyInstaller --onefile, os recursos ficam em _MEIPASS

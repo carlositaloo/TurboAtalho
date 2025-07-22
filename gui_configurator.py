@@ -41,7 +41,7 @@ class ConfiguratorUI(tk.Tk):
         super().__init__()
 
         # Ícone na janela / taskbar (somente .ico)
-        ico_ico = os.path.join(os.path.dirname(__file__), 'icons', 'icon2.ico')
+        ico_ico = os.path.join(os.path.dirname(__file__), 'icons', 'icon.ico')
         if os.path.exists(ico_ico):
             self.iconbitmap(ico_ico)
 
