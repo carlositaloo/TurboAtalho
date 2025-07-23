@@ -16,217 +16,422 @@ from PIL                import Image
 
 from defaults import DEFAULT_CONFIG
 
-HERE         = os.path.dirname(__file__)
-CONFIG_FILE  = os.path.join(HERE, 'config.json')
-MON_INTERVAL = 30
-DOUBLE_INT   = 0.5
+# Configuração do diretório de config no %APPDATA%
+APPDATA = os.environ.get('APPDATA', os.path.expanduser('~\\AppData\\Roaming'))
+CONFIG_DIR = os.path.join(APPDATA, 'TurboAtalho')
+ARQUIVO_CONFIG = os.path.join(CONFIG_DIR, 'config.json')
 
-# Se executado via PyInstaller --onefile, os recursos ficam em _MEIPASS
+# Garante que o diretório existe
+os.makedirs(CONFIG_DIR, exist_ok=True)
+
+# Caminhos e configurações principais
+DIRETORIO_ATUAL = os.path.dirname(__file__)
+
+# Configurações de monitoramento e timing
+INTERVALO_MONITORAMENTO = 30    # Intervalo em segundos para verificar processos
+TEMPO_DUPLO_CLIQUE     = 0.5    # Tempo máximo entre pressões para atalho duplo
+
+# Determina o diretório base (PyInstaller ou desenvolvimento)
 if getattr(sys, 'frozen', False):
-    BASE = sys._MEIPASS
+    # Se executado via PyInstaller --onefile, recursos ficam em _MEIPASS
+    DIRETORIO_BASE = sys._MEIPASS
 else:
-    BASE = os.path.dirname(__file__)
+    # Modo desenvolvimento - diretório do script
+    DIRETORIO_BASE = os.path.dirname(__file__)
 
-ICONS_DIR   = os.path.join(BASE, 'icons')
-DEFAUT_FILE = os.path.join(BASE, 'defaults.json')
+DIRETORIO_ICONES = os.path.join(DIRETORIO_BASE, 'icons')
 
-# Controller para enviar teclas
-_kbd = Controller()
+# Controlador do teclado para enviar teclas programaticamente
+controlador_teclado = Controller()
 
-# Mapa de prioridades para psutil
-PRIO_MAP = {
+# Mapeamento de prioridades para psutil (Windows)
+MAPA_PRIORIDADES = {
     "Normal": psutil.NORMAL_PRIORITY_CLASS,
     "High":   psutil.HIGH_PRIORITY_CLASS
 }
 
-# GUIDs de fallback (em minúsculas)
-PLAN_FALLBACK = {
-    "Desempenho máximo":    "e9a42b02-d5df-448d-aa00-03f14749eb61".lower(),
+# GUIDs dos planos de energia padrão do Windows (em minúsculas para comparação)
+PLANOS_ENERGIA_PADRAO = {
     "Alto desempenho":      "8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c".lower(),
     "Equilibrado":          "381b4222-f694-41f0-9685-ff5bb260df2e".lower(),
     "Economia de energia":  "a1841308-3541-4fab-bc81-f71556f20b4a".lower()
 }
 
 # Flag para criar nova janela de console no Windows
-if sys.platform == "win32":
-    CREATE_NEW_CONSOLE = subprocess.CREATE_NEW_CONSOLE
-else:
-    CREATE_NEW_CONSOLE = 0
+FLAG_NOVA_JANELA = subprocess.CREATE_NEW_CONSOLE if sys.platform == "win32" else 0
 
 
-def get_plan_guids():
-    """Retorna dict: nome_plano → guid_lowercase disponíveis no sistema."""
+def obter_guids_planos_energia():
+    """
+    Obtém os GUIDs dos planos de energia disponíveis no sistema atual.
+    
+    Returns:
+        dict: Mapeamento nome_plano → guid_lowercase dos planos disponíveis
+    """
     try:
-        result = subprocess.run(
+        resultado = subprocess.run(
             ["powercfg", "/list"],
             capture_output=True, text=True, check=True
         )
     except subprocess.CalledProcessError:
+        # Se falhar, retorna dicionário vazio (usará fallbacks)
         return {}
-    mapping = {}
-    for line in result.stdout.splitlines():
-        m = re.search(r"GUID:\s*([0-9A-Fa-f-]+)\s*\((.+?)\)", line)
-        if m:
-            mapping[m.group(2).strip()] = m.group(1).lower()
-    return mapping
+    
+    mapeamento_planos = {}
+    for linha in resultado.stdout.splitlines():
+        # Procura padrão: GUID: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx (Nome do Plano)
+        match = re.search(r"GUID:\s*([0-9A-Fa-f-]+)\s*\((.+?)\)", linha)
+        if match:
+            guid = match.group(1).lower()
+            nome = match.group(2).strip()
+            mapeamento_planos[nome] = guid
+    
+    return mapeamento_planos
 
 
-def get_active_window_title():
-    """Retorna o título da janela atualmente ativa no Windows."""
-    user32 = ctypes.WinDLL('user32', use_last_error=True)
-    hwnd = user32.GetForegroundWindow()
-    length = user32.GetWindowTextLengthW(hwnd)
-    buf = ctypes.create_unicode_buffer(length + 1)
-    user32.GetWindowTextW(hwnd, buf, length + 1)
-    return buf.value
+def obter_titulo_janela_ativa():
+    """
+    Obtém o título da janela atualmente em foco no Windows.
+    
+    Returns:
+        str: Título da janela ativa
+    """
+    try:
+        user32 = ctypes.WinDLL('user32', use_last_error=True)
+        hwnd = user32.GetForegroundWindow()
+        tamanho = user32.GetWindowTextLengthW(hwnd)
+        buffer = ctypes.create_unicode_buffer(tamanho + 1)
+        user32.GetWindowTextW(hwnd, buffer, tamanho + 1)
+        return buffer.value
+    except Exception:
+        # Se falhar, retorna string vazia
+        return ""
 
 
-def load_config():
-    if not os.path.exists(CONFIG_FILE):
-        with open(CONFIG_FILE, 'w', encoding='utf-8') as f:
-            json.dump(DEFAULT_CONFIG, f, indent=4, ensure_ascii=False)
+def carregar_configuracoes():
+    """
+    Carrega as configurações do arquivo JSON ou cria com padrões se não existir.
+    
+    Returns:
+        dict: Configurações carregadas
+    """
+    if not os.path.exists(ARQUIVO_CONFIG):
+        # Cria arquivo de configuração com valores padrão
+        with open(ARQUIVO_CONFIG, 'w', encoding='utf-8') as arquivo:
+            json.dump(DEFAULT_CONFIG, arquivo, indent=4, ensure_ascii=False)
         return DEFAULT_CONFIG.copy()
-    with open(CONFIG_FILE, 'r', encoding='utf-8') as f:
-        return json.load(f)
+    
+    try:
+        with open(ARQUIVO_CONFIG, 'r', encoding='utf-8') as arquivo:
+            return json.load(arquivo)
+    except (json.JSONDecodeError, FileNotFoundError):
+        # Se arquivo corrompido, retorna configurações padrão
+        return DEFAULT_CONFIG.copy()
 
 
-def executar_comando(cmd):
+def executar_comando(comando):
     """
-    Se for executável (.exe), abre em nova janela de console no Windows;
-    senão executa no shell.
+    Executa um comando no sistema.
+    
+    - Se for arquivo executável (.exe): abre em nova janela de console
+    - Caso contrário: executa no shell atual
+    
+    Args:
+        comando (str): Comando ou caminho do executável a ser executado
     """
-    if os.path.isfile(cmd) or cmd.lower().endswith('.exe'):
-        subprocess.Popen([cmd], creationflags=CREATE_NEW_CONSOLE)
-    else:
-        subprocess.Popen(cmd, shell=True)
+    try:
+        if os.path.isfile(comando) or comando.lower().endswith('.exe'):
+            # Executável - abre em nova janela
+            subprocess.Popen([comando], creationflags=FLAG_NOVA_JANELA)
+        else:
+            # Comando shell - executa normalmente
+            subprocess.Popen(comando, shell=True)
+    except Exception as erro:
+        # Se falhar, continua silenciosamente (aplicação em background)
+        pass
 
 
-class AtalhosListener:
+class GerenciadorAtalhos:
+    """
+    Classe responsável por gerenciar os atalhos de teclado configuráveis.
+    
+    Monitora teclas pressionadas e executa comandos quando detecta
+    duplo-pressionamento das teclas configuradas.
+    """
+    
     def __init__(self):
-        cfg = load_config()
-        self.atalhos = cfg["atalhos"]
-        self.enable_calc_percent = cfg.get("enable_calc_percent", True)
-        self.mtime   = os.path.getmtime(CONFIG_FILE)
-        self.last    = {}
+        configuracoes = carregar_configuracoes()
+        
+        # Configurações de atalhos
+        self.atalhos_configurados = configuracoes["atalhos"]
+        self.atalho_calculadora_ativo = configuracoes.get("enable_calc_percent", True)
+        
+        # Controle de modificação do arquivo
+        self.timestamp_config = os.path.getmtime(ARQUIVO_CONFIG)
+        
+        # Histórico de teclas pressionadas (para detectar duplo-clique)
+        self.historico_teclas = {}
 
-    def reload_if_needed(self):
-        m = os.path.getmtime(CONFIG_FILE)
-        if m != self.mtime:
-            cfg = load_config()
-            self.atalhos           = cfg["atalhos"]
-            self.enable_calc_percent = cfg.get("enable_calc_percent", True)
-            self.mtime   = m
+    def recarregar_se_necessario(self):
+        """
+        Verifica se o arquivo de configuração foi modificado e recarrega se necessário.
+        """
+        try:
+            timestamp_atual = os.path.getmtime(ARQUIVO_CONFIG)
+            if timestamp_atual != self.timestamp_config:
+                # Arquivo foi modificado - recarrega configurações
+                configuracoes = carregar_configuracoes()
+                self.atalhos_configurados = configuracoes["atalhos"]
+                self.atalho_calculadora_ativo = configuracoes.get("enable_calc_percent", True)
+                self.timestamp_config = timestamp_atual
+        except OSError:
+            # Se arquivo não existir ou erro de acesso, mantém configurações atuais
+            pass
 
-    def on_press(self, key):
-        # --- Caso especial (configurável): shift direito na Calculadora envia '%' ---
-        if self.enable_calc_percent \
-           and key == Key.shift_r \
-           and get_active_window_title() == "Calculadora":
-            _kbd.press(Key.shift)
-            _kbd.press('5')
-            _kbd.release('5')
-            _kbd.release(Key.shift)
+    def ao_pressionar_tecla(self, tecla):
+        """
+        Handler chamado quando uma tecla é pressionada.
+        
+        Args:
+            tecla: Objeto Key ou KeyCode da tecla pressionada
+        """
+        # Atalho especial: Shift direito na Calculadora envia '%'
+        if (self.atalho_calculadora_ativo and 
+            tecla == Key.shift_r and 
+            obter_titulo_janela_ativa() == "Calculadora"):
+            
+            # Simula Shift+5 para enviar '%'
+            controlador_teclado.press(Key.shift)
+            controlador_teclado.press('5')
+            controlador_teclado.release('5')
+            controlador_teclado.release(Key.shift)
             return
 
-        # --- Atalhos configuráveis (duplo-pressionar) ---
-        self.reload_if_needed()
-        now = time.time()
-        for a in self.atalhos:
+        # Verifica atalhos configuráveis (duplo-pressionamento)
+        self.recarregar_se_necessario()
+        tempo_atual = time.time()
+        
+        for atalho in self.atalhos_configurados:
+            # Converte string da configuração para objeto tecla
             try:
-                tecla = eval(a['tecla'])
-            except:
-                tecla = a['tecla']
-            match = (
-                key == tecla or
-                (isinstance(key, KeyCode) and getattr(key, 'char', None) == tecla)
+                tecla_configurada = eval(atalho['tecla'])
+            except (NameError, SyntaxError):
+                # Se eval falhar, usa como string literal
+                tecla_configurada = atalho['tecla']
+            
+            # Verifica se a tecla pressionada corresponde à configurada
+            tecla_corresponde = (
+                tecla == tecla_configurada or
+                (isinstance(tecla, KeyCode) and 
+                 getattr(tecla, 'char', None) == tecla_configurada)
             )
-            if not match:
+            
+            if not tecla_corresponde:
                 continue
-            prev = self.last.get(a['tecla'])
-            if prev and (now - prev) < DOUBLE_INT:
-                executar_comando(a['comando'])
-                self.last[a['tecla']] = None
+            
+            # Verifica duplo-pressionamento
+            chave_atalho = atalho['tecla']
+            tempo_anterior = self.historico_teclas.get(chave_atalho)
+            
+            if tempo_anterior and (tempo_atual - tempo_anterior) < TEMPO_DUPLO_CLIQUE:
+                # Duplo-pressionamento detectado - executa comando
+                executar_comando(atalho['comando'])
+                self.historico_teclas[chave_atalho] = None  # Reset para evitar triplo
             else:
-                self.last[a['tecla']] = now
+                # Primeira pressão - salva timestamp
+                self.historico_teclas[chave_atalho] = tempo_atual
 
-    def start(self):
-        Listener(on_press=self.on_press).start()
+    def iniciar_monitoramento(self):
+        """
+        Inicia o listener de teclado em thread separada.
+        """
+        Listener(on_press=self.ao_pressionar_tecla).start()
 
 
-class PowerManager:
+class GerenciadorEnergia:
+    """
+    Classe responsável por monitorar processos e ajustar automaticamente
+    os planos de energia e prioridades baseado nos processos em execução.
+    """
+    
     def __init__(self):
-        cfg          = load_config()
-        self.mon_cfg = cfg["monitores"]
-        self.mtime   = os.path.getmtime(CONFIG_FILE)
-        self.plan_map = get_plan_guids()
-        self.state   = {m['process'].lower(): False for m in self.mon_cfg}
+        configuracoes = carregar_configuracoes()
+        
+        # Configurações de monitoramento
+        self.processos_monitorados = configuracoes["monitores"]
+        self.timestamp_config = os.path.getmtime(ARQUIVO_CONFIG)
+        
+        # Mapeamento de planos de energia disponíveis no sistema
+        self.mapa_planos_sistema = obter_guids_planos_energia()
+        
+        # Estado atual dos processos (True = ativo, False = inativo)
+        self.estado_processos = {
+            processo['process'].lower(): False 
+            for processo in self.processos_monitorados
+        }
 
-    def reload_if_needed(self):
-        m = os.path.getmtime(CONFIG_FILE)
-        if m != self.mtime:
-            cfg          = load_config()
-            self.mon_cfg = cfg["monitores"]
-            self.mtime   = m
-            self.plan_map= get_plan_guids()
-            self.state   = {m['process'].lower(): False for m in self.mon_cfg}
+    def recarregar_se_necessario(self):
+        """
+        Verifica se as configurações foram modificadas e recarrega se necessário.
+        """
+        try:
+            timestamp_atual = os.path.getmtime(ARQUIVO_CONFIG)
+            if timestamp_atual != self.timestamp_config:
+                # Recarrega configurações
+                configuracoes = carregar_configuracoes()
+                self.processos_monitorados = configuracoes["monitores"]
+                self.timestamp_config = timestamp_atual
+                self.mapa_planos_sistema = obter_guids_planos_energia()
+                
+                # Reinicializa estado dos processos
+                self.estado_processos = {
+                    processo['process'].lower(): False 
+                    for processo in self.processos_monitorados
+                }
+        except OSError:
+            # Mantém configurações atuais se houver erro
+            pass
 
-    def monitor(self):
+    def monitorar_processos(self):
+        """
+        Loop principal de monitoramento de processos.
+        
+        Executa continuamente verificando se os processos configurados
+        estão ativos e ajusta planos de energia/prioridades conforme necessário.
+        """
         while True:
-            self.reload_if_needed()
-            for m in self.mon_cfg:
-                pname = m['process'].lower()
-                procs = [
-                    p for p in psutil.process_iter(['name'])
-                    if p.info['name'] and p.info['name'].lower().startswith(pname)
-                ]
-                active = bool(procs)
-
-                guid_on  = self.plan_map.get(m['power_on'], PLAN_FALLBACK.get(m['power_on']))
-                guid_off = self.plan_map.get(m['power_off'], PLAN_FALLBACK.get(m['power_off']))
-
-                if not guid_on:
-                    guid_on = PLAN_FALLBACK["Alto desempenho"]
-                if not guid_off:
-                    guid_off = PLAN_FALLBACK["Equilibrado"]
-
-                if active and not self.state[pname]:
-                    try:
-                        subprocess.run(["powercfg", "-setactive", guid_on], check=True)
-                    except subprocess.CalledProcessError:
-                        pass
-                    for p in procs:
+            try:
+                self.recarregar_se_necessario()
+                
+                for config_processo in self.processos_monitorados:
+                    nome_processo = config_processo['process'].lower()
+                    
+                    # Busca processos que começam com o nome configurado
+                    processos_encontrados = [
+                        processo for processo in psutil.process_iter(['name'])
+                        if (processo.info['name'] and 
+                            processo.info['name'].lower().startswith(nome_processo))
+                    ]
+                    
+                    processo_ativo = bool(processos_encontrados)
+                    
+                    # Obtém GUIDs dos planos de energia (com fallbacks)
+                    guid_plano_ativo = (
+                        self.mapa_planos_sistema.get(config_processo['power_on']) or
+                        PLANOS_ENERGIA_PADRAO.get(config_processo['power_on']) or
+                        PLANOS_ENERGIA_PADRAO["Alto desempenho"]
+                    )
+                    
+                    guid_plano_inativo = (
+                        self.mapa_planos_sistema.get(config_processo['power_off']) or
+                        PLANOS_ENERGIA_PADRAO.get(config_processo['power_off']) or
+                        PLANOS_ENERGIA_PADRAO["Equilibrado"]
+                    )
+                    
+                    # Processo foi iniciado
+                    if processo_ativo and not self.estado_processos[nome_processo]:
+                        # Altera plano de energia para modo de alta performance
                         try:
-                            p.nice(PRIO_MAP.get(m['priority'], psutil.NORMAL_PRIORITY_CLASS))
-                        except:
+                            subprocess.run(
+                                ["powercfg", "-setactive", guid_plano_ativo], 
+                                check=True
+                            )
+                        except subprocess.CalledProcessError:
+                            # Se falhar, continua (pode não ter permissões)
                             pass
-                    self.state[pname] = True
+                        
+                        # Ajusta prioridade dos processos encontrados
+                        for processo in processos_encontrados:
+                            try:
+                                prioridade = MAPA_PRIORIDADES.get(
+                                    config_processo['priority'], 
+                                    psutil.NORMAL_PRIORITY_CLASS
+                                )
+                                processo.nice(prioridade)
+                            except (psutil.NoSuchProcess, psutil.AccessDenied):
+                                # Processo pode ter terminado ou sem permissão
+                                continue
+                        
+                        self.estado_processos[nome_processo] = True
+                    
+                    # Processo foi encerrado
+                    elif not processo_ativo and self.estado_processos[nome_processo]:
+                        # Retorna ao plano de energia padrão
+                        try:
+                            subprocess.run(
+                                ["powercfg", "-setactive", guid_plano_inativo], 
+                                check=True
+                            )
+                        except subprocess.CalledProcessError:
+                            # Se falhar, continua
+                            pass
+                        
+                        self.estado_processos[nome_processo] = False
+                
+            except Exception:
+                # Em caso de erro geral, continua monitoramento
+                pass
+            
+            # Aguarda próxima verificação
+            time.sleep(INTERVALO_MONITORAMENTO)
 
-                elif not active and self.state[pname]:
-                    try:
-                        subprocess.run(["powercfg", "-setactive", guid_off], check=True)
-                    except subprocess.CalledProcessError:
-                        pass
-                    self.state[pname] = False
 
-            time.sleep(MON_INTERVAL)
+def abrir_configurador(icone, item):
+    """
+    Abre a interface de configuração.
+    
+    Tenta abrir o executável compilado primeiro, senão executa o script Python.
+    """
+    executavel = os.path.join(DIRETORIO_ATUAL, 'gui_configurator.exe')
+    script_python = os.path.join(DIRETORIO_ATUAL, 'gui_configurator.py')
+    
+    if os.path.exists(executavel):
+        argumentos = [executavel]
+    else:
+        argumentos = [sys.executable, script_python]
+    
+    try:
+        subprocess.Popen(argumentos)
+    except Exception:
+        # Se falhar, continua silenciosamente
+        pass
 
 
-def abrir_config(icon, item):
-    exe = os.path.join(HERE, 'gui_configurator.exe')
-    py  = os.path.join(HERE, 'gui_configurator.py')
-    args = [exe] if os.path.exists(exe) else [sys.executable, py]
-    subprocess.Popen(args)
+def criar_icone_system_tray():
+    """
+    Cria e executa o ícone na bandeja do sistema (system tray).
+    """
+    try:
+        # Carrega ícone
+        caminho_icone = os.path.join(DIRETORIO_ICONES, 'icon.ico')
+        imagem_icone = Image.open(caminho_icone)
+        
+        # Cria menu de contexto
+        menu_contexto = Menu(
+            MenuItem('Opções', abrir_configurador),
+            MenuItem('Sair', lambda icone, item: icone.stop())
+        )
+        
+        # Cria e executa ícone do system tray
+        Icon('Atalhos', imagem_icone, 'Atalhos', menu_contexto).run()
+        
+    except Exception:
+        # Se falhar ao criar tray, termina aplicação
+        sys.exit(1)
 
-
-def criar_tray():
-    img  = Image.open(os.path.join(ICONS_DIR, 'icon.png'))
-    menu = Menu(
-        MenuItem('Opções', abrir_config),
-        MenuItem('Sair',    lambda icon, item: icon.stop())
-    )
-    Icon('Atalhos', img, 'Atalhos', menu).run()
 
 if __name__ == "__main__":
-    threading.Thread(target=PowerManager().monitor, daemon=True).start()
-    AtalhosListener().start()
-    criar_tray()
+    # Inicia gerenciador de energia em thread separada
+    gerenciador_energia = GerenciadorEnergia()
+    thread_energia = threading.Thread(
+        target=gerenciador_energia.monitorar_processos, 
+        daemon=True
+    )
+    thread_energia.start()
+    
+    # Inicia gerenciador de atalhos
+    gerenciador_atalhos = GerenciadorAtalhos()
+    gerenciador_atalhos.iniciar_monitoramento()
+    
+    # Cria interface de system tray (bloqueia thread principal)
+    criar_icone_system_tray()
