@@ -84,7 +84,6 @@ class InterfaceConfigurador(tk.Tk):
     def __init__(self, configuracao_padrao):
         super().__init__()
 
-<<<<<<< HEAD
         # Configuração da janela principal
         self._configurar_janela()
         
@@ -93,12 +92,6 @@ class InterfaceConfigurador(tk.Tk):
         
         # Constrói interface gráfica
         self._construir_interface()
-=======
-        # Ícone na janela / taskbar (somente .ico)
-        ico_ico = os.path.join(os.path.dirname(__file__), 'icons', 'icon.ico')
-        if os.path.exists(ico_ico):
-            self.iconbitmap(ico_ico)
->>>>>>> 2ecb76c2f7141caaf82ebf8123c9b752ff038071
 
     def _configurar_janela(self):
         """
