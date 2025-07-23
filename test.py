@@ -6,13 +6,8 @@ import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 from defaults import DEFAULT_CONFIG
 
-# Configuração do diretório de config no %APPDATA%
-APPDATA = os.environ.get('APPDATA', os.path.expanduser('~\\AppData\\Roaming'))
-CONFIG_DIR = os.path.join(APPDATA, 'TurboAtalho')
-ARQUIVO_CONFIG = os.path.join(CONFIG_DIR, 'config.json')
-
-# Garante que o diretório existe
-os.makedirs(CONFIG_DIR, exist_ok=True)
+# Arquivo de configuração
+ARQUIVO_CONFIG = "config.json"
 
 # Opções de prioridade para exibição na interface
 OPCOES_PRIORIDADE_EXIBICAO = ["Normal", "Alta"]
@@ -155,14 +150,14 @@ class InterfaceConfigurador(tk.Tk):
         """
         aba = ttk.Frame(notebook)
         notebook.add(aba, text="Gerenciar Atalhos")
-        aba.columnconfigure(1, weight=1)  # LINHA IMPORTANTE: faz coluna 1 expandir
+        aba.columnconfigure(1, weight=1)
 
         # Campo de entrada para tecla
         ttk.Label(aba, text="Tecla:")\
             .grid(row=0, column=0, sticky='w', padx=3, pady=2)
         
         self.campo_tecla = ttk.Entry(aba, width=20)
-        self.campo_tecla.grid(row=0, column=1, columnspan=2, sticky='ew', padx=3, pady=2)  # sticky='ew' expande horizontalmente
+        self.campo_tecla.grid(row=0, column=1, columnspan=2, sticky='ew', padx=3, pady=2)
         self.campo_tecla.insert(0, self.PLACEHOLDER_TECLA)
         self.campo_tecla.bind("<FocusIn>", self._ao_focar_campo_tecla)
         self.campo_tecla.bind("<FocusOut>", self._ao_desfocar_campo_tecla)
@@ -172,16 +167,16 @@ class InterfaceConfigurador(tk.Tk):
             .grid(row=1, column=0, sticky='w', padx=3, pady=2)
         
         self.campo_comando = ttk.Entry(aba, width=20)
-        self.campo_comando.grid(row=1, column=1, sticky='ew', padx=3, pady=2)  # sticky='ew' expande horizontalmente
+        self.campo_comando.grid(row=1, column=1, sticky='ew', padx=3, pady=2)
         
         # Botão para procurar arquivo
         ttk.Button(aba, text="…", width=2, command=self._procurar_arquivo)\
             .grid(row=1, column=2, padx=3, pady=2)
 
         # Botões de ação
-        ttk.Button(aba, text="Remover Selecionado", command=self._remover_atalho)\
-            .grid(row=2, column=0, padx=3, pady=4, sticky='w')
         ttk.Button(aba, text="Adicionar", command=self._adicionar_atalho)\
+            .grid(row=2, column=0, padx=3, pady=4, sticky='w')
+        ttk.Button(aba, text="Remover Selecionado", command=self._remover_atalho)\
             .grid(row=2, column=1, columnspan=2, padx=3, pady=4, sticky='e')
 
         # Checkbox para atalho especial da calculadora
@@ -196,7 +191,7 @@ class InterfaceConfigurador(tk.Tk):
         # Lista de atalhos configurados
         self.lista_widget_atalhos = tk.Listbox(aba, height=8)
         self.lista_widget_atalhos.grid(row=4, column=0, columnspan=3, sticky='nsew', padx=3, pady=2)
-        aba.rowconfigure(4, weight=1)  # LINHA IMPORTANTE: faz linha 4 (lista) expandir verticalmente
+        aba.rowconfigure(4, weight=1)
         
         # Carrega atalhos na lista
         self._atualizar_lista_atalhos()
@@ -210,14 +205,14 @@ class InterfaceConfigurador(tk.Tk):
         """
         aba = ttk.Frame(notebook)
         notebook.add(aba, text="Gerenciar Energia")
-        aba.columnconfigure(1, weight=1)  # LINHA IMPORTANTE: faz coluna 1 expandir
+        aba.columnconfigure(1, weight=1)
 
         # Campo para nome do processo
         ttk.Label(aba, text="Processo:")\
             .grid(row=0, column=0, sticky='w', padx=3, pady=2)
         
         self.campo_processo = ttk.Entry(aba, width=16)
-        self.campo_processo.grid(row=0, column=1, sticky='ew', padx=3, pady=2)  # sticky='ew' expande horizontalmente
+        self.campo_processo.grid(row=0, column=1, sticky='ew', padx=3, pady=2)
 
         # Combo para prioridade
         ttk.Label(aba, text="Prioridade:")\
@@ -229,7 +224,7 @@ class InterfaceConfigurador(tk.Tk):
             width=14, 
             state='readonly'
         )
-        self.combo_prioridade.grid(row=1, column=1, sticky='ew', padx=3, pady=2)  # sticky='ew' expande horizontalmente
+        self.combo_prioridade.grid(row=1, column=1, sticky='ew', padx=3, pady=2)
         self.combo_prioridade.set(OPCOES_PRIORIDADE_EXIBICAO[1])  # "Alta" como padrão
 
         # Combo para plano ao iniciar processo
@@ -242,7 +237,7 @@ class InterfaceConfigurador(tk.Tk):
             width=14, 
             state='readonly'
         )
-        self.combo_plano_iniciar.grid(row=2, column=1, sticky='ew', padx=3, pady=2)  # sticky='ew' expande horizontalmente
+        self.combo_plano_iniciar.grid(row=2, column=1, sticky='ew', padx=3, pady=2)
         self.combo_plano_iniciar.set(OPCOES_PLANOS_ENERGIA[0])  # "Alto desempenho"
 
         # Combo para plano ao parar processo
@@ -255,19 +250,19 @@ class InterfaceConfigurador(tk.Tk):
             width=14, 
             state='readonly'
         )
-        self.combo_plano_parar.grid(row=3, column=1, sticky='ew', padx=3, pady=2)  # sticky='ew' expande horizontalmente
+        self.combo_plano_parar.grid(row=3, column=1, sticky='ew', padx=3, pady=2)
         self.combo_plano_parar.set(OPCOES_PLANOS_ENERGIA[1])  # "Equilibrado"
 
         # Botões de ação
-        ttk.Button(aba, text="Remover Selecionado", command=self._remover_monitor)\
-            .grid(row=4, column=0, padx=3, pady=4, sticky='w')
         ttk.Button(aba, text="Adicionar", command=self._adicionar_monitor)\
+            .grid(row=4, column=0, padx=3, pady=4, sticky='w')
+        ttk.Button(aba, text="Remover Selecionado", command=self._remover_monitor)\
             .grid(row=4, column=1, padx=3, pady=4, sticky='e')
 
         # Lista de monitores configurados
         self.lista_widget_monitores = tk.Listbox(aba, height=8)
         self.lista_widget_monitores.grid(row=5, column=0, columnspan=3, sticky='nsew', padx=3, pady=2)
-        aba.rowconfigure(5, weight=1)  # LINHA IMPORTANTE: faz linha 5 (lista) expandir verticalmente
+        aba.rowconfigure(5, weight=1)
         
         # Carrega monitores na lista
         self._atualizar_lista_monitores()
