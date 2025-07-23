@@ -16,10 +16,17 @@ from PIL                import Image
 
 from defaults import DEFAULT_CONFIG
 
+<<<<<<< HEAD
 # Configuração do diretório de config no %APPDATA%
 APPDATA = os.environ.get('APPDATA', os.path.expanduser('~\\AppData\\Roaming'))
 CONFIG_DIR = os.path.join(APPDATA, 'TurboAtalho')
 ARQUIVO_CONFIG = os.path.join(CONFIG_DIR, 'config.json')
+=======
+HERE         = os.path.dirname(__file__)
+CONFIG_FILE  = os.path.join(HERE, 'config.json')
+MON_INTERVAL = 2
+DOUBLE_INT   = 0.5
+>>>>>>> 2ecb76c2f7141caaf82ebf8123c9b752ff038071
 
 # Garante que o diretório existe
 os.makedirs(CONFIG_DIR, exist_ok=True)
