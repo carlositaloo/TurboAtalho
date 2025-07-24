@@ -19,12 +19,13 @@ OPCOES_PRIORIDADE_EXIBICAO = ["Normal", "Alta"]
 
 # Mapeamento entre exibição e valores internos de prioridade
 PRIORIDADE_EXIBICAO_PARA_INTERNO = {"Normal": "Normal", "Alta": "High"}
-PRIORIDADE_INTERNO_PARA_EXIBICAO = {valor: chave for chave, valor in PRIORIDADE_EXIBICAO_PARA_INTERNO.items()}
+PRIORIDADE_INTERNO_PARA_EXIBICAO = {
+    valor: chave for chave, valor in PRIORIDADE_EXIBICAO_PARA_INTERNO.items()}
 
 # Opções de planos de energia disponíveis
 OPCOES_PLANOS_ENERGIA = [
     "Alto desempenho",
-    "Equilibrado", 
+    "Equilibrado",
     "Economia de energia"
 ]
 
@@ -32,19 +33,20 @@ OPCOES_PLANOS_ENERGIA = [
 def carregar_configuracoes(configuracao_padrao):
     """
     Carrega configurações do arquivo JSON ou cria com padrões se não existir.
-    
+
     Args:
         configuracao_padrao (dict): Configurações padrão caso arquivo não exista
-        
+
     Returns:
         dict: Configurações carregadas
     """
     if not os.path.exists(ARQUIVO_CONFIG):
         # Cria arquivo com configurações padrão
         with open(ARQUIVO_CONFIG, 'w', encoding='utf-8') as arquivo:
-            json.dump(configuracao_padrao, arquivo, indent=4, ensure_ascii=False)
+            json.dump(configuracao_padrao, arquivo,
+                      indent=4, ensure_ascii=False)
         return configuracao_padrao.copy()
-    
+
     try:
         with open(ARQUIVO_CONFIG, 'r', encoding='utf-8') as arquivo:
             return json.load(arquivo)
@@ -56,7 +58,7 @@ def carregar_configuracoes(configuracao_padrao):
 def salvar_configuracoes(configuracoes):
     """
     Salva configurações no arquivo JSON.
-    
+
     Args:
         configuracoes (dict): Configurações a serem salvas
     """
@@ -65,19 +67,20 @@ def salvar_configuracoes(configuracoes):
             json.dump(configuracoes, arquivo, indent=4, ensure_ascii=False)
     except Exception:
         # Se falhar ao salvar, mostra erro ao usuário
-        messagebox.showerror("Erro", "Não foi possível salvar as configurações")
+        messagebox.showerror(
+            "Erro", "Não foi possível salvar as configurações")
 
 
 class InterfaceConfigurador(tk.Tk):
     """
     Interface gráfica principal para configuração de atalhos e monitoramento de energia.
-    
+
     Permite gerenciar:
     - Atalhos de teclado personalizados
     - Monitoramento de processos com ajuste automático de energia
     - Configuração especial para calculadora
     """
-    
+
     # Texto placeholder para campo de tecla
     PLACEHOLDER_TECLA = "Clique e pressione tecla"
 
@@ -86,10 +89,10 @@ class InterfaceConfigurador(tk.Tk):
 
         # Configuração da janela principal
         self._configurar_janela()
-        
+
         # Carrega configurações e inicializa variáveis
         self._inicializar_dados(configuracao_padrao)
-        
+
         # Constrói interface gráfica
         self._construir_interface()
 
@@ -98,7 +101,8 @@ class InterfaceConfigurador(tk.Tk):
         Configura propriedades básicas da janela principal.
         """
         # Define ícone da janela (se disponível)
-        caminho_icone = os.path.join(os.path.dirname(__file__), 'icons', 'icon.ico')
+        caminho_icone = os.path.join(
+            os.path.dirname(__file__), 'icons', 'icon.ico')
         if os.path.exists(caminho_icone):
             try:
                 self.iconbitmap(caminho_icone)
@@ -108,23 +112,23 @@ class InterfaceConfigurador(tk.Tk):
 
         # Propriedades da janela
         self.title("Configurar Atalhos & Energia")
-        self.geometry("280x430")
+        self.geometry("280x300")
         self.resizable(False, False)
 
     def _inicializar_dados(self, configuracao_padrao):
         """
         Carrega configurações e inicializa variáveis de controle.
-        
+
         Args:
             configuracao_padrao (dict): Configurações padrão
         """
         # Carrega configurações do arquivo
         self.configuracoes = carregar_configuracoes(configuracao_padrao)
-        
+
         # Listas de dados
         self.lista_atalhos = self.configuracoes["atalhos"]
         self.lista_monitores = self.configuracoes["monitores"]
-        
+
         # Variável para checkbox da calculadora
         self.atalho_calculadora_ativo = tk.BooleanVar(
             value=self.configuracoes.get("enable_calc_percent", True)
@@ -137,11 +141,11 @@ class InterfaceConfigurador(tk.Tk):
         # Cria notebook (abas)
         notebook = ttk.Notebook(self)
         notebook.place(x=0, y=0, width=280, height=380)
-        
+
         # Constrói abas
         self._construir_aba_atalhos(notebook)
         self._construir_aba_energia(notebook)
-        
+
         # Botão fechar
         ttk.Button(self, text="Fechar", command=self.destroy)\
             .place(x=200, y=395, width=70, height=28)
@@ -149,20 +153,23 @@ class InterfaceConfigurador(tk.Tk):
     def _construir_aba_atalhos(self, notebook):
         """
         Constrói a aba de gerenciamento de atalhos.
-        
+
         Args:
             notebook: Widget Notebook onde adicionar a aba
         """
         aba = ttk.Frame(notebook)
         notebook.add(aba, text="Gerenciar Atalhos")
-        aba.columnconfigure(1, weight=1)  # LINHA IMPORTANTE: faz coluna 1 expandir
+        # LINHA IMPORTANTE: faz coluna 1 expandir
+        aba.columnconfigure(1, weight=1)
 
         # Campo de entrada para tecla
         ttk.Label(aba, text="Tecla:")\
             .grid(row=0, column=0, sticky='w', padx=3, pady=2)
-        
+
         self.campo_tecla = ttk.Entry(aba, width=20)
-        self.campo_tecla.grid(row=0, column=1, columnspan=2, sticky='ew', padx=3, pady=2)  # sticky='ew' expande horizontalmente
+        # sticky='ew' expande horizontalmente
+        self.campo_tecla.grid(row=0, column=1, columnspan=2,
+                              sticky='ew', padx=3, pady=2)
         self.campo_tecla.insert(0, self.PLACEHOLDER_TECLA)
         self.campo_tecla.bind("<FocusIn>", self._ao_focar_campo_tecla)
         self.campo_tecla.bind("<FocusOut>", self._ao_desfocar_campo_tecla)
@@ -170,18 +177,19 @@ class InterfaceConfigurador(tk.Tk):
         # Campo de entrada para comando
         ttk.Label(aba, text="Comando:")\
             .grid(row=1, column=0, sticky='w', padx=3, pady=2)
-        
+
         self.campo_comando = ttk.Entry(aba, width=20)
-        self.campo_comando.grid(row=1, column=1, sticky='ew', padx=3, pady=2)  # sticky='ew' expande horizontalmente
-        
+        # sticky='ew' expande horizontalmente
+        self.campo_comando.grid(row=1, column=1, sticky='ew', padx=3, pady=2)
+
         # Botão para procurar arquivo
         ttk.Button(aba, text="…", width=2, command=self._procurar_arquivo)\
             .grid(row=1, column=2, padx=3, pady=2)
 
         # Botões de ação
-        ttk.Button(aba, text="Remover Selecionado", command=self._remover_atalho)\
-            .grid(row=2, column=0, padx=3, pady=4, sticky='w')
         ttk.Button(aba, text="Adicionar", command=self._adicionar_atalho)\
+            .grid(row=2, column=0, padx=3, pady=4, sticky='w')
+        ttk.Button(aba, text="Remover Selecionado", command=self._remover_atalho)\
             .grid(row=2, column=1, columnspan=2, padx=3, pady=4, sticky='e')
 
         # Checkbox para atalho especial da calculadora
@@ -191,84 +199,99 @@ class InterfaceConfigurador(tk.Tk):
             variable=self.atalho_calculadora_ativo,
             command=self._alternar_atalho_calculadora
         )
-        checkbox_calculadora.grid(row=3, column=0, columnspan=3, sticky='w', padx=3, pady=4)
+        checkbox_calculadora.grid(
+            row=3, column=0, columnspan=3, sticky='w', padx=3, pady=4)
 
         # Lista de atalhos configurados
         self.lista_widget_atalhos = tk.Listbox(aba, height=8)
-        self.lista_widget_atalhos.grid(row=4, column=0, columnspan=3, sticky='nsew', padx=3, pady=2)
-        aba.rowconfigure(4, weight=1)  # LINHA IMPORTANTE: faz linha 4 (lista) expandir verticalmente
-        
+        self.lista_widget_atalhos.grid(
+            row=4, column=0, columnspan=3, sticky='nsew', padx=3, pady=2)
+        # LINHA IMPORTANTE: faz linha 4 (lista) expandir verticalmente
+        aba.rowconfigure(4, weight=1)
+
         # Carrega atalhos na lista
         self._atualizar_lista_atalhos()
 
     def _construir_aba_energia(self, notebook):
         """
         Constrói a aba de gerenciamento de energia.
-        
+
         Args:
             notebook: Widget Notebook onde adicionar a aba
         """
         aba = ttk.Frame(notebook)
         notebook.add(aba, text="Gerenciar Energia")
-        aba.columnconfigure(1, weight=1)  # LINHA IMPORTANTE: faz coluna 1 expandir
+        # LINHA IMPORTANTE: faz coluna 1 expandir
+        aba.columnconfigure(1, weight=1)
 
         # Campo para nome do processo
         ttk.Label(aba, text="Processo:")\
             .grid(row=0, column=0, sticky='w', padx=3, pady=2)
-        
+
         self.campo_processo = ttk.Entry(aba, width=16)
-        self.campo_processo.grid(row=0, column=1, sticky='ew', padx=3, pady=2)  # sticky='ew' expande horizontalmente
+        # sticky='ew' expande horizontalmente
+        self.campo_processo.grid(row=0, column=1, sticky='ew', padx=3, pady=2)
 
         # Combo para prioridade
         ttk.Label(aba, text="Prioridade:")\
             .grid(row=1, column=0, sticky='w', padx=3, pady=2)
-        
+
         self.combo_prioridade = ttk.Combobox(
-            aba, 
-            values=OPCOES_PRIORIDADE_EXIBICAO, 
-            width=14, 
+            aba,
+            values=OPCOES_PRIORIDADE_EXIBICAO,
+            width=14,
             state='readonly'
         )
-        self.combo_prioridade.grid(row=1, column=1, sticky='ew', padx=3, pady=2)  # sticky='ew' expande horizontalmente
-        self.combo_prioridade.set(OPCOES_PRIORIDADE_EXIBICAO[1])  # "Alta" como padrão
+        # sticky='ew' expande horizontalmente
+        self.combo_prioridade.grid(
+            row=1, column=1, sticky='ew', padx=3, pady=2)
+        self.combo_prioridade.set(
+            OPCOES_PRIORIDADE_EXIBICAO[1])  # "Alta" como padrão
 
         # Combo para plano ao iniciar processo
         ttk.Label(aba, text="Plano ao Iniciar:")\
             .grid(row=2, column=0, sticky='w', padx=3, pady=2)
-        
+
         self.combo_plano_iniciar = ttk.Combobox(
-            aba, 
-            values=OPCOES_PLANOS_ENERGIA, 
-            width=14, 
+            aba,
+            values=OPCOES_PLANOS_ENERGIA,
+            width=14,
             state='readonly'
         )
-        self.combo_plano_iniciar.grid(row=2, column=1, sticky='ew', padx=3, pady=2)  # sticky='ew' expande horizontalmente
-        self.combo_plano_iniciar.set(OPCOES_PLANOS_ENERGIA[0])  # "Alto desempenho"
+        # sticky='ew' expande horizontalmente
+        self.combo_plano_iniciar.grid(
+            row=2, column=1, sticky='ew', padx=3, pady=2)
+        self.combo_plano_iniciar.set(
+            OPCOES_PLANOS_ENERGIA[0])  # "Alto desempenho"
 
         # Combo para plano ao parar processo
         ttk.Label(aba, text="Plano ao Parar:")\
             .grid(row=3, column=0, sticky='w', padx=3, pady=2)
-        
+
         self.combo_plano_parar = ttk.Combobox(
-            aba, 
-            values=OPCOES_PLANOS_ENERGIA, 
-            width=14, 
+            aba,
+            values=OPCOES_PLANOS_ENERGIA,
+            width=14,
             state='readonly'
         )
-        self.combo_plano_parar.grid(row=3, column=1, sticky='ew', padx=3, pady=2)  # sticky='ew' expande horizontalmente
+        # sticky='ew' expande horizontalmente
+        self.combo_plano_parar.grid(
+            row=3, column=1, sticky='ew', padx=3, pady=2)
         self.combo_plano_parar.set(OPCOES_PLANOS_ENERGIA[1])  # "Equilibrado"
 
         # Botões de ação
-        ttk.Button(aba, text="Remover Selecionado", command=self._remover_monitor)\
-            .grid(row=4, column=0, padx=3, pady=4, sticky='w')
         ttk.Button(aba, text="Adicionar", command=self._adicionar_monitor)\
+            .grid(row=4, column=0, padx=3, pady=4, sticky='w')
+        ttk.Button(aba, text="Remover Selecionado", command=self._remover_monitor)\
             .grid(row=4, column=1, padx=3, pady=4, sticky='e')
 
         # Lista de monitores configurados
         self.lista_widget_monitores = tk.Listbox(aba, height=8)
-        self.lista_widget_monitores.grid(row=5, column=0, columnspan=3, sticky='nsew', padx=3, pady=2)
-        aba.rowconfigure(5, weight=1)  # LINHA IMPORTANTE: faz linha 5 (lista) expandir verticalmente
-        
+        self.lista_widget_monitores.grid(
+            row=5, column=0, columnspan=3, sticky='nsew', padx=3, pady=2)
+        # LINHA IMPORTANTE: faz linha 5 (lista) expandir verticalmente
+        aba.rowconfigure(5, weight=1)
+
         # Carrega monitores na lista
         self._atualizar_lista_monitores()
 
@@ -293,7 +316,7 @@ class InterfaceConfigurador(tk.Tk):
     def _capturar_tecla_pressionada(self, evento):
         """
         Captura a tecla pressionada e insere no campo.
-        
+
         Args:
             evento: Evento de tecla pressionada
         """
@@ -304,11 +327,11 @@ class InterfaceConfigurador(tk.Tk):
         else:
             # Tecla especial (ex: F1, Ctrl, etc)
             representacao_tecla = f"Key.{evento.keysym.lower()}"
-        
+
         # Insere tecla no campo
         self.campo_tecla.delete(0, tk.END)
         self.campo_tecla.insert(0, representacao_tecla)
-        
+
         # Para captura de teclas
         self.unbind_all("<KeyPress>")
 
@@ -327,25 +350,25 @@ class InterfaceConfigurador(tk.Tk):
         """
         tecla = self.campo_tecla.get().strip()
         comando = self.campo_comando.get().strip()
-        
+
         # Validação dos campos
         if not tecla or tecla.startswith("Clique") or not comando:
             messagebox.showwarning("Atenção", "Defina tecla e comando válidos")
             return
-        
+
         # Adiciona atalho à lista
         novo_atalho = {"tecla": tecla, "comando": comando}
         self.lista_atalhos.append(novo_atalho)
-        
+
         # Salva configurações
         self.configuracoes["atalhos"] = self.lista_atalhos
         salvar_configuracoes(self.configuracoes)
-        
+
         # Limpa campos
         self.campo_tecla.delete(0, tk.END)
         self.campo_tecla.insert(0, self.PLACEHOLDER_TECLA)
         self.campo_comando.delete(0, tk.END)
-        
+
         # Atualiza lista visual
         self._atualizar_lista_atalhos()
 
@@ -355,17 +378,18 @@ class InterfaceConfigurador(tk.Tk):
         """
         selecao = self.lista_widget_atalhos.curselection()
         if not selecao:
-            messagebox.showinfo("Informação", "Selecione um atalho para remover")
+            messagebox.showinfo(
+                "Informação", "Selecione um atalho para remover")
             return
-        
+
         # Remove atalho da lista
         indice = selecao[0]
         del self.lista_atalhos[indice]
-        
+
         # Salva configurações
         self.configuracoes["atalhos"] = self.lista_atalhos
         salvar_configuracoes(self.configuracoes)
-        
+
         # Atualiza lista visual
         self._atualizar_lista_atalhos()
 
@@ -373,7 +397,8 @@ class InterfaceConfigurador(tk.Tk):
         """
         Alterna ativação do atalho especial para calculadora.
         """
-        self.configuracoes["enable_calc_percent"] = self.atalho_calculadora_ativo.get()
+        self.configuracoes["enable_calc_percent"] = self.atalho_calculadora_ativo.get(
+        )
         salvar_configuracoes(self.configuracoes)
 
     def _procurar_arquivo(self):
@@ -384,7 +409,7 @@ class InterfaceConfigurador(tk.Tk):
             title="Selecione executável",
             filetypes=[("Executáveis", "*.exe"), ("Todos os arquivos", "*.*")]
         )
-        
+
         if caminho_arquivo:
             # Normaliza caminho e insere no campo
             caminho_normalizado = os.path.normpath(caminho_arquivo)
@@ -399,10 +424,10 @@ class InterfaceConfigurador(tk.Tk):
         for monitor in self.lista_monitores:
             # Converte prioridade interna para exibição
             prioridade_exibicao = PRIORIDADE_INTERNO_PARA_EXIBICAO.get(
-                monitor['priority'], 
+                monitor['priority'],
                 monitor['priority']
             )
-            
+
             # Formata texto do monitor
             texto_monitor = (
                 f"{monitor['process']} | {prioridade_exibicao} | "
@@ -415,17 +440,17 @@ class InterfaceConfigurador(tk.Tk):
         Adiciona novo monitor de energia à configuração.
         """
         nome_processo = self.campo_processo.get().strip()
-        
+
         if not nome_processo:
             messagebox.showwarning("Atenção", "Informe o nome do processo")
             return
-        
+
         # Obtém valores dos combos
         prioridade_exibicao = self.combo_prioridade.get()
         prioridade_interna = PRIORIDADE_EXIBICAO_PARA_INTERNO[prioridade_exibicao]
         plano_iniciar = self.combo_plano_iniciar.get()
         plano_parar = self.combo_plano_parar.get()
-        
+
         # Cria novo monitor
         novo_monitor = {
             "process": nome_processo,
@@ -433,17 +458,17 @@ class InterfaceConfigurador(tk.Tk):
             "power_on": plano_iniciar,
             "power_off": plano_parar
         }
-        
+
         # Adiciona à lista
         self.lista_monitores.append(novo_monitor)
-        
+
         # Salva configurações
         self.configuracoes["monitores"] = self.lista_monitores
         salvar_configuracoes(self.configuracoes)
-        
+
         # Limpa campo
         self.campo_processo.delete(0, tk.END)
-        
+
         # Atualiza lista visual
         self._atualizar_lista_monitores()
 
@@ -453,17 +478,18 @@ class InterfaceConfigurador(tk.Tk):
         """
         selecao = self.lista_widget_monitores.curselection()
         if not selecao:
-            messagebox.showinfo("Informação", "Selecione um monitor para remover")
+            messagebox.showinfo(
+                "Informação", "Selecione um monitor para remover")
             return
-        
+
         # Remove monitor da lista
         indice = selecao[0]
         del self.lista_monitores[indice]
-        
+
         # Salva configurações
         self.configuracoes["monitores"] = self.lista_monitores
         salvar_configuracoes(self.configuracoes)
-        
+
         # Atualiza lista visual
         self._atualizar_lista_monitores()
 
