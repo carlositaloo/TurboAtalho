@@ -15,15 +15,17 @@ ARQUIVO_CONFIG = os.path.join(CONFIG_DIR, 'config.json')
 os.makedirs(CONFIG_DIR, exist_ok=True)
 
 # Opções de prioridade para exibição na interface
-OPCOES_PRIORIDADE_EXIBICAO = ["Normal", "Alta"]
+OPCOES_PRIORIDADE_EXIBICAO = ["Normal", "Acima do normal", "Alta"]
 
 # Mapeamento entre exibição e valores internos de prioridade
-PRIORIDADE_EXIBICAO_PARA_INTERNO = {"Normal": "Normal", "Alta": "High"}
+PRIORIDADE_EXIBICAO_PARA_INTERNO = {
+    "Normal": "Normal", "Acima do normal": "Acima do normal", "Alta": "Alta"}
 PRIORIDADE_INTERNO_PARA_EXIBICAO = {
     valor: chave for chave, valor in PRIORIDADE_EXIBICAO_PARA_INTERNO.items()}
 
 # Opções de planos de energia disponíveis
 OPCOES_PLANOS_ENERGIA = [
+    "Desempenho Máximo",
     "Alto desempenho",
     "Equilibrado",
     "Economia de energia"
@@ -112,7 +114,7 @@ class InterfaceConfigurador(tk.Tk):
 
         # Propriedades da janela
         self.title("Configurar Atalhos & Energia")
-        self.geometry("230x300")
+        self.geometry("234x300")
         self.resizable(False, False)
 
     def _inicializar_dados(self, configuracao_padrao):
@@ -249,7 +251,7 @@ class InterfaceConfigurador(tk.Tk):
         self.combo_prioridade.grid(
             row=1, column=1, sticky='ew', padx=2, pady=1)
         self.combo_prioridade.set(
-            OPCOES_PRIORIDADE_EXIBICAO[1])  # "Alta" como padrão
+            OPCOES_PRIORIDADE_EXIBICAO[2])  # "Alta" como padrão
 
         # Combo para plano ao iniciar processo
         ttk.Label(aba, text="Ao Iniciar:")\
@@ -263,7 +265,7 @@ class InterfaceConfigurador(tk.Tk):
         self.combo_plano_iniciar.grid(
             row=2, column=1, sticky='ew', padx=2, pady=1)
         self.combo_plano_iniciar.set(
-            OPCOES_PLANOS_ENERGIA[0])  # "Alto desempenho"
+            OPCOES_PLANOS_ENERGIA[1])  # "Alto desempenho"
 
         # Combo para plano ao parar processo
         ttk.Label(aba, text="Ao Parar:")\
@@ -276,7 +278,7 @@ class InterfaceConfigurador(tk.Tk):
         )
         self.combo_plano_parar.grid(
             row=3, column=1, sticky='ew', padx=2, pady=1)
-        self.combo_plano_parar.set(OPCOES_PLANOS_ENERGIA[1])  # "Equilibrado"
+        self.combo_plano_parar.set(OPCOES_PLANOS_ENERGIA[2])  # "Equilibrado"
 
         # Botões de ação
         ttk.Button(aba, text="Adicionar", command=self._adicionar_monitor)\
