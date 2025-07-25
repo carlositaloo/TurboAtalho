@@ -1,4 +1,4 @@
-# gui_configurator.py - Interface de configuração para atalhos e energia
+# gui_configurator.py - Interface de configuração para atalhos e energia - VERSÃO SIMPLIFICADA
 
 import json
 import os
@@ -23,9 +23,8 @@ PRIORIDADE_EXIBICAO_PARA_INTERNO = {
 PRIORIDADE_INTERNO_PARA_EXIBICAO = {
     valor: chave for chave, valor in PRIORIDADE_EXIBICAO_PARA_INTERNO.items()}
 
-# Opções de planos de energia disponíveis
+# Opções de planos de energia disponíveis (SIMPLIFICADO - apenas 3 planos que funcionam sempre)
 OPCOES_PLANOS_ENERGIA = [
-    "Desempenho Máximo",
     "Alto desempenho",
     "Equilibrado",
     "Economia de energia"
@@ -81,6 +80,8 @@ class InterfaceConfigurador(tk.Tk):
     - Atalhos de teclado personalizados
     - Monitoramento de processos com ajuste automático de energia
     - Configuração especial para calculadora
+    
+    VERSÃO SIMPLIFICADA: Apenas 3 planos de energia básicos
     """
 
     # Texto placeholder para campo de tecla
@@ -113,7 +114,7 @@ class InterfaceConfigurador(tk.Tk):
                 pass
 
         # Propriedades da janela
-        self.title("Configurar Atalhos & Energia")
+        self.title("Configurar Atalhos & Energia - Simplificado")
         self.geometry("234x300")
         self.resizable(False, False)
 
@@ -130,11 +131,42 @@ class InterfaceConfigurador(tk.Tk):
         # Listas de dados
         self.lista_atalhos = self.configuracoes["atalhos"]
         self.lista_monitores = self.configuracoes["monitores"]
+        
+        # Limpa monitores com planos não suportados
+        self._limpar_monitores_invalidos()
 
         # Variável para checkbox da calculadora
         self.atalho_calculadora_ativo = tk.BooleanVar(
             value=self.configuracoes.get("enable_calc_percent", True)
         )
+
+    def _limpar_monitores_invalidos(self):
+        """
+        Remove monitores que usam planos de energia não suportados na versão simplificada
+        """
+        monitores_validos = []
+        for monitor in self.lista_monitores:
+            power_on = monitor.get('power_on', '')
+            power_off = monitor.get('power_off', '')
+            
+            # Verifica se os planos são suportados
+            if power_on in OPCOES_PLANOS_ENERGIA and power_off in OPCOES_PLANOS_ENERGIA:
+                monitores_validos.append(monitor)
+            else:
+                print(f"⚠️ Removendo monitor inválido: {monitor.get('process', 'desconhecido')} "
+                      f"(planos não suportados: {power_on}, {power_off})")
+        
+        if len(monitores_validos) != len(self.lista_monitores):
+            self.lista_monitores = monitores_validos
+            self.configuracoes["monitores"] = monitores_validos
+            salvar_configuracoes(self.configuracoes)
+            
+            messagebox.showinfo(
+                "Limpeza de Configuração",
+                f"Alguns monitores com planos não suportados foram removidos.\n"
+                f"Versão simplificada suporta apenas:\n"
+                f"• Alto desempenho\n• Equilibrado\n• Economia de energia"
+            )
 
     def _construir_interface(self):
         """
@@ -196,9 +228,9 @@ class InterfaceConfigurador(tk.Tk):
             .grid(row=1, column=2, padx=2, pady=1)
 
         # Botões de ação
-        ttk.Button(aba, text="Adicionar", command=self._adicionar_atalho)\
-            .grid(row=2, column=0, padx=2, pady=3, sticky='w')
         ttk.Button(aba, text="Remover", command=self._remover_atalho)\
+            .grid(row=2, column=0, padx=2, pady=3, sticky='w')
+        ttk.Button(aba, text="Adicionar", command=self._adicionar_atalho)\
             .grid(row=2, column=1, columnspan=2, padx=2, pady=3, sticky='e')
 
         # Checkbox para atalho especial da calculadora
@@ -230,18 +262,18 @@ class InterfaceConfigurador(tk.Tk):
         notebook.add(aba, text="Gerenciar Energia")
         # Configura expansão das colunas e linhas
         aba.columnconfigure(1, weight=1)
-        aba.rowconfigure(5, weight=1)
+        aba.rowconfigure(6, weight=1)
 
         # Campo para nome do processo
         ttk.Label(aba, text="Processo:")\
-            .grid(row=0, column=0, sticky='w', padx=2, pady=1)
+            .grid(row=1, column=0, sticky='w', padx=2, pady=1)
 
         self.campo_processo = ttk.Entry(aba)
-        self.campo_processo.grid(row=0, column=1, sticky='ew', padx=2, pady=1)
+        self.campo_processo.grid(row=1, column=1, sticky='ew', padx=2, pady=1)
 
         # Combo para prioridade
         ttk.Label(aba, text="Prioridade:")\
-            .grid(row=1, column=0, sticky='w', padx=2, pady=1)
+            .grid(row=2, column=0, sticky='w', padx=2, pady=1)
 
         self.combo_prioridade = ttk.Combobox(
             aba,
@@ -249,13 +281,13 @@ class InterfaceConfigurador(tk.Tk):
             state='readonly'
         )
         self.combo_prioridade.grid(
-            row=1, column=1, sticky='ew', padx=2, pady=1)
+            row=2, column=1, sticky='ew', padx=2, pady=1)
         self.combo_prioridade.set(
             OPCOES_PRIORIDADE_EXIBICAO[2])  # "Alta" como padrão
 
         # Combo para plano ao iniciar processo
         ttk.Label(aba, text="Ao Iniciar:")\
-            .grid(row=2, column=0, sticky='w', padx=2, pady=1)
+            .grid(row=3, column=0, sticky='w', padx=2, pady=1)
 
         self.combo_plano_iniciar = ttk.Combobox(
             aba,
@@ -263,13 +295,13 @@ class InterfaceConfigurador(tk.Tk):
             state='readonly'
         )
         self.combo_plano_iniciar.grid(
-            row=2, column=1, sticky='ew', padx=2, pady=1)
+            row=3, column=1, sticky='ew', padx=2, pady=1)
         self.combo_plano_iniciar.set(
-            OPCOES_PLANOS_ENERGIA[1])  # "Alto desempenho"
+            OPCOES_PLANOS_ENERGIA[0])  # "Alto desempenho"
 
         # Combo para plano ao parar processo
         ttk.Label(aba, text="Ao Parar:")\
-            .grid(row=3, column=0, sticky='w', padx=2, pady=1)
+            .grid(row=4, column=0, sticky='w', padx=2, pady=1)
 
         self.combo_plano_parar = ttk.Combobox(
             aba,
@@ -277,19 +309,19 @@ class InterfaceConfigurador(tk.Tk):
             state='readonly'
         )
         self.combo_plano_parar.grid(
-            row=3, column=1, sticky='ew', padx=2, pady=1)
-        self.combo_plano_parar.set(OPCOES_PLANOS_ENERGIA[2])  # "Equilibrado"
+            row=4, column=1, sticky='ew', padx=2, pady=1)
+        self.combo_plano_parar.set(OPCOES_PLANOS_ENERGIA[1])  # "Equilibrado"
 
         # Botões de ação
-        ttk.Button(aba, text="Adicionar", command=self._adicionar_monitor)\
-            .grid(row=4, column=0, padx=2, pady=3, sticky='w')
         ttk.Button(aba, text="Remover", command=self._remover_monitor)\
-            .grid(row=4, column=1, padx=2, pady=3, sticky='e')
+            .grid(row=5, column=0, padx=2, pady=3, sticky='w')
+        ttk.Button(aba, text="Adicionar", command=self._adicionar_monitor)\
+            .grid(row=5, column=1, padx=2, pady=3, sticky='e')
 
         # Lista de monitores configurados
         self.lista_widget_monitores = tk.Listbox(aba, height=6)
         self.lista_widget_monitores.grid(
-            row=5, column=0, columnspan=3, sticky='nsew', padx=2, pady=1)
+            row=6, column=0, columnspan=3, sticky='nsew', padx=2, pady=1)
 
         # Carrega monitores na lista
         self._atualizar_lista_monitores()
@@ -449,6 +481,15 @@ class InterfaceConfigurador(tk.Tk):
         prioridade_interna = PRIORIDADE_EXIBICAO_PARA_INTERNO[prioridade_exibicao]
         plano_iniciar = self.combo_plano_iniciar.get()
         plano_parar = self.combo_plano_parar.get()
+
+        # Validação adicional - só permite planos suportados
+        if plano_iniciar not in OPCOES_PLANOS_ENERGIA:
+            messagebox.showerror("Erro", f"Plano '{plano_iniciar}' não é suportado na versão simplificada")
+            return
+        
+        if plano_parar not in OPCOES_PLANOS_ENERGIA:
+            messagebox.showerror("Erro", f"Plano '{plano_parar}' não é suportado na versão simplificada")
+            return
 
         # Cria novo monitor
         novo_monitor = {

@@ -1,4 +1,4 @@
-# main.py (atalhos & power manager)
+# main.py (atalhos & power manager) - VERSÃO SIMPLIFICADA
 
 import json
 import os
@@ -41,47 +41,15 @@ MAPA_PRIORIDADES = {
     "Alta":   psutil.HIGH_PRIORITY_CLASS
 }
 
-# GUIDs dos planos de energia padrão do Windows (em minúsculas para comparação)
-PLANOS_ENERGIA_PADRAO = {
-    "Alto desempenho":      "8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c".lower(),
-    "Equilibrado":          "381b4222-f694-41f0-9685-ff5bb260df2e".lower(),
-    "Economia de energia":  "a1841308-3541-4fab-bc81-f71556f20b4a".lower()
+# GUIDs dos planos de energia fixos (apenas os 3 básicos que funcionam sempre)
+PLANOS_ENERGIA_FIXOS = {
+    "Alto desempenho":      "8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c",
+    "Equilibrado":          "381b4222-f694-41f0-9685-ff5bb260df2e",
+    "Economia de energia":  "a1841308-3541-4fab-bc81-f71556f20b4a"
 }
 
 # Flag para criar nova janela de console no Windows
 FLAG_NOVA_JANELA = subprocess.CREATE_NEW_CONSOLE if sys.platform == "win32" else 0
-
-
-def obter_guids_planos_energia():
-    """
-    Obtém os GUIDs dos planos de energia disponíveis no sistema atual.
-
-    Returns:
-        dict: Mapeamento nome_plano → guid_lowercase dos planos disponíveis
-    """
-    try:
-        resultado = subprocess.run(
-            ["powercfg", "/list"],
-            capture_output=True, text=True, check=True
-        )
-    except subprocess.CalledProcessError:
-        # Se falhar, retorna dicionário vazio (usará fallbacks)
-        return {}
-
-    mapeamento_planos = {}
-    for linha in resultado.stdout.splitlines():
-        # Padrão atualizado para Windows em português:
-        # GUID do Esquema de Energia: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx  (Nome do Plano)
-        match = re.search(
-            r"GUID do Esquema de Energia:\s*([0-9A-Fa-f-]+)\s*\((.+?)\)", linha)
-        if match:
-            guid = match.group(1).lower()
-            nome = match.group(2).strip()
-            # Remove o asterisco (*) se presente (indica plano ativo)
-            nome = nome.rstrip(' *')
-            mapeamento_planos[nome] = guid
-
-    return mapeamento_planos
 
 
 def obter_titulo_janela_ativa():
@@ -251,23 +219,25 @@ class GerenciadorPlanoEnergia:
     Classe para gerenciar planos de energia considerando prioridades e múltiplos processos.
 
     Hierarquia de prioridade (do maior para menor):
-    1. Desempenho máximo (ADICIONADO)
-    2. Alto desempenho
-    3. Equilibrado  
-    4. Economia de energia
+    1. Alto desempenho
+    2. Equilibrado  
+    3. Economia de energia
     """
 
     PRIORIDADE_PLANOS = {
-        "Desempenho máximo": 4,  # ADICIONADO - Maior prioridade
         "Alto desempenho": 3,
         "Equilibrado": 2,
         "Economia de energia": 1
     }
 
-    def __init__(self, mapa_planos_sistema):
-        self.mapa_planos_sistema = mapa_planos_sistema
+    def __init__(self):
         self.plano_atual = None
         self.processos_ativos = {}  # {nome_processo: config_processo}
+        
+        # Debug: mostra planos disponíveis
+        print("🔧 GerenciadorPlanoEnergia inicializado com planos fixos:")
+        for nome, guid in PLANOS_ENERGIA_FIXOS.items():
+            print(f"  {nome} → {guid}")
 
     def adicionar_processo_ativo(self, nome_processo, config_processo):
         """
@@ -277,6 +247,9 @@ class GerenciadorPlanoEnergia:
             nome_processo (str): Nome do processo
             config_processo (dict): Configuração do processo
         """
+        print(f"🟢 Processo INICIADO: {nome_processo}")
+        print(f"   Configuração: {config_processo}")
+        
         self.processos_ativos[nome_processo] = config_processo
         self._aplicar_plano_necessario()
 
@@ -288,6 +261,7 @@ class GerenciadorPlanoEnergia:
             nome_processo (str): Nome do processo a remover
         """
         if nome_processo in self.processos_ativos:
+            print(f"🔴 Processo PARADO: {nome_processo}")
             del self.processos_ativos[nome_processo]
         self._aplicar_plano_necessario()
 
@@ -312,6 +286,7 @@ class GerenciadorPlanoEnergia:
                 maior_prioridade = prioridade
                 plano_necessario = plano_on
 
+        print(f"🔍 Plano necessário calculado: {plano_necessario} (prioridade {maior_prioridade})")
         return plano_necessario
 
     def _aplicar_plano_necessario(self):
@@ -322,43 +297,47 @@ class GerenciadorPlanoEnergia:
 
         # Só muda o plano se for diferente do atual
         if self.plano_atual != plano_necessario:
-            self._definir_plano_energia(plano_necessario)
-            self.plano_atual = plano_necessario
+            print(f"⚡ Mudando plano: {self.plano_atual or 'desconhecido'} → {plano_necessario}")
+            sucesso = self._definir_plano_energia(plano_necessario)
+            if sucesso:
+                self.plano_atual = plano_necessario
+                print(f"✅ Plano alterado com sucesso para: {plano_necessario}")
+            else:
+                print(f"❌ Falha ao alterar para: {plano_necessario}")
+        else:
+            print(f"ℹ️ Plano já está correto: {plano_necessario}")
 
     def _definir_plano_energia(self, nome_plano):
         """
-        Define o plano de energia do sistema.
+        Define o plano de energia do sistema usando GUIDs fixos.
 
         Args:
             nome_plano (str): Nome do plano de energia a ser aplicado
+            
+        Returns:
+            bool: True se sucesso, False se falhou
         """
-        # Obtém GUID do plano
-        guid_plano = self.mapa_planos_sistema.get(nome_plano)
+        # Usa apenas os planos fixos - sem detecção dinâmica
+        guid_plano = PLANOS_ENERGIA_FIXOS.get(nome_plano)
 
-        # Se não encontrou o plano no sistema
         if not guid_plano:
-            # Fallback especial: "Desempenho máximo" → "Alto desempenho"
-            if nome_plano == "Desempenho máximo":
-                guid_plano = (
-                    self.mapa_planos_sistema.get("Alto desempenho") or
-                    PLANOS_ENERGIA_PADRAO.get("Alto desempenho")
-                )
-            else:
-                # Para outros planos, usa os padrões do Windows
-                guid_plano = PLANOS_ENERGIA_PADRAO.get(nome_plano)
-
-        # Se ainda não encontrou GUID, não faz nada
-        if not guid_plano:
-            return
+            print(f"❌ Plano '{nome_plano}' não está nos planos fixos suportados")
+            return False
 
         try:
+            print(f"🔧 Executando: powercfg -setactive {guid_plano}")
             subprocess.run(
                 ["powercfg", "-setactive", guid_plano],
-                check=True
+                check=True,
+                capture_output=True,
+                text=True
             )
-        except subprocess.CalledProcessError:
-            # Se falhar, continua (pode não ter permissões)
-            pass
+            return True
+        except subprocess.CalledProcessError as e:
+            print(f"❌ Erro ao executar powercfg: {e}")
+            print(f"   stdout: {e.stdout}")
+            print(f"   stderr: {e.stderr}")
+            return False
 
 
 class GerenciadorEnergia:
@@ -374,15 +353,15 @@ class GerenciadorEnergia:
         self.processos_monitorados = configuracoes["monitores"]
         self.timestamp_config = os.path.getmtime(ARQUIVO_CONFIG)
 
-        # Mapeamento de planos de energia disponíveis no sistema
-        self.mapa_planos_sistema = obter_guids_planos_energia()
-
-        # Gerenciador de planos de energia
-        self.gerenciador_plano = GerenciadorPlanoEnergia(
-            self.mapa_planos_sistema)
+        # Gerenciador de planos de energia (agora simplificado)
+        self.gerenciador_plano = GerenciadorPlanoEnergia()
 
         # Inicializa estado dos processos verificando se já estão rodando
         self.estado_processos = {}
+        
+        print("🔍 Inicializando monitoramento de processos...")
+        print(f"   Processos configurados: {len(self.processos_monitorados)}")
+        
         for processo in self.processos_monitorados:
             nome_processo = processo['process'].lower()
             processos_ativos = [
@@ -392,6 +371,8 @@ class GerenciadorEnergia:
             ]
 
             self.estado_processos[nome_processo] = bool(processos_ativos)
+            
+            print(f"   {nome_processo}: {'🟢 ATIVO' if processos_ativos else '⚫ PARADO'}")
 
             # Se processo já está ativo, adiciona ao gerenciador
             if processos_ativos:
@@ -405,14 +386,11 @@ class GerenciadorEnergia:
         try:
             timestamp_atual = os.path.getmtime(ARQUIVO_CONFIG)
             if timestamp_atual != self.timestamp_config:
+                print("🔄 Configurações modificadas, recarregando...")
                 # Recarrega configurações
                 configuracoes = carregar_configuracoes()
                 self.processos_monitorados = configuracoes["monitores"]
                 self.timestamp_config = timestamp_atual
-                self.mapa_planos_sistema = obter_guids_planos_energia()
-
-                # Atualiza gerenciador de plano
-                self.gerenciador_plano.mapa_planos_sistema = self.mapa_planos_sistema
 
                 # Reinicializa estado dos processos
                 old_estado = self.estado_processos.copy()
@@ -451,6 +429,8 @@ class GerenciadorEnergia:
         Executa continuamente verificando se os processos configurados
         estão ativos e ajusta planos de energia/prioridades conforme necessário.
         """
+        print("🚀 Iniciando loop de monitoramento...")
+        
         while True:
             try:
                 self.recarregar_se_necessario()
@@ -468,7 +448,7 @@ class GerenciadorEnergia:
                     processo_ativo = bool(processos_encontrados)
 
                     # Processo foi iniciado
-                    if processo_ativo and not self.estado_processos[nome_processo]:
+                    if processo_ativo and not self.estado_processos.get(nome_processo, False):
                         # Adiciona processo ao gerenciador (que vai calcular o plano necessário)
                         self.gerenciador_plano.adicionar_processo_ativo(
                             nome_processo, config_processo)
@@ -481,6 +461,7 @@ class GerenciadorEnergia:
                                     psutil.NORMAL_PRIORITY_CLASS
                                 )
                                 processo.nice(prioridade)
+                                print(f"🔧 Prioridade ajustada para {processo.info['name']}: {config_processo['priority']}")
                             except (psutil.NoSuchProcess, psutil.AccessDenied):
                                 # Processo pode ter terminado ou sem permissão
                                 continue
@@ -488,15 +469,16 @@ class GerenciadorEnergia:
                         self.estado_processos[nome_processo] = True
 
                     # Processo foi encerrado
-                    elif not processo_ativo and self.estado_processos[nome_processo]:
+                    elif not processo_ativo and self.estado_processos.get(nome_processo, False):
                         # Remove processo do gerenciador (que vai recalcular o plano necessário)
                         self.gerenciador_plano.remover_processo_ativo(
                             nome_processo)
 
                         self.estado_processos[nome_processo] = False
 
-            except Exception:
+            except Exception as e:
                 # Em caso de erro geral, continua monitoramento
+                print(f"⚠️ Erro no monitoramento: {e}")
                 pass
 
             # Aguarda próxima verificação
@@ -544,6 +526,8 @@ def criar_icone_system_tray():
 
 
 if __name__ == "__main__":
+    print("🚀 Iniciando TurboAtalho - Versão Simplificada (3 planos)")
+    
     # Inicia gerenciador de energia em thread separada
     gerenciador_energia = GerenciadorEnergia()
     thread_energia = threading.Thread(
