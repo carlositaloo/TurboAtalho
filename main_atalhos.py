@@ -1,4 +1,4 @@
-# main.py (atalhos & power manager) - VERSÃO SIMPLIFICADA
+# main.py (atalhos & power manager)
 
 import json
 import os
@@ -353,7 +353,7 @@ class GerenciadorEnergia:
         self.processos_monitorados = configuracoes["monitores"]
         self.timestamp_config = os.path.getmtime(ARQUIVO_CONFIG)
 
-        # Gerenciador de planos de energia (agora simplificado)
+        # Gerenciador de planos de energia
         self.gerenciador_plano = GerenciadorPlanoEnergia()
 
         # Inicializa estado dos processos verificando se já estão rodando
@@ -526,7 +526,7 @@ def criar_icone_system_tray():
 
 
 if __name__ == "__main__":
-    print("🚀 Iniciando TurboAtalho - Versão Simplificada (3 planos)")
+    print("🚀 Iniciando TurboAtalho")
     
     # Inicia gerenciador de energia em thread separada
     gerenciador_energia = GerenciadorEnergia()

@@ -1,4 +1,4 @@
-# gui_configurator.py - Interface de configuração para atalhos e energia - VERSÃO SIMPLIFICADA
+# gui_configurator.py - Interface de configuração para atalhos e energia
 
 import json
 import os
@@ -23,7 +23,7 @@ PRIORIDADE_EXIBICAO_PARA_INTERNO = {
 PRIORIDADE_INTERNO_PARA_EXIBICAO = {
     valor: chave for chave, valor in PRIORIDADE_EXIBICAO_PARA_INTERNO.items()}
 
-# Opções de planos de energia disponíveis (SIMPLIFICADO - apenas 3 planos que funcionam sempre)
+# Opções de planos de energia disponíveis (apenas 3 planos que funcionam sempre)
 OPCOES_PLANOS_ENERGIA = [
     "Alto desempenho",
     "Equilibrado",
@@ -80,8 +80,6 @@ class InterfaceConfigurador(tk.Tk):
     - Atalhos de teclado personalizados
     - Monitoramento de processos com ajuste automático de energia
     - Configuração especial para calculadora
-    
-    VERSÃO SIMPLIFICADA: Apenas 3 planos de energia básicos
     """
 
     # Texto placeholder para campo de tecla
@@ -114,8 +112,8 @@ class InterfaceConfigurador(tk.Tk):
                 pass
 
         # Propriedades da janela
-        self.title("Configurar Atalhos & Energia - Simplificado")
-        self.geometry("234x300")
+        self.title("Opções Turbo Atalho")
+        self.geometry("230x300")
         self.resizable(False, False)
 
     def _inicializar_dados(self, configuracao_padrao):
@@ -142,7 +140,7 @@ class InterfaceConfigurador(tk.Tk):
 
     def _limpar_monitores_invalidos(self):
         """
-        Remove monitores que usam planos de energia não suportados na versão simplificada
+        Remove monitores que usam planos de energia não suportados
         """
         monitores_validos = []
         for monitor in self.lista_monitores:
@@ -164,7 +162,7 @@ class InterfaceConfigurador(tk.Tk):
             messagebox.showinfo(
                 "Limpeza de Configuração",
                 f"Alguns monitores com planos não suportados foram removidos.\n"
-                f"Versão simplificada suporta apenas:\n"
+                f"Suporta apenas:\n"
                 f"• Alto desempenho\n• Equilibrado\n• Economia de energia"
             )
 
@@ -484,11 +482,11 @@ class InterfaceConfigurador(tk.Tk):
 
         # Validação adicional - só permite planos suportados
         if plano_iniciar not in OPCOES_PLANOS_ENERGIA:
-            messagebox.showerror("Erro", f"Plano '{plano_iniciar}' não é suportado na versão simplificada")
+            messagebox.showerror("Erro", f"Plano '{plano_iniciar}' não é suportado.")
             return
         
         if plano_parar not in OPCOES_PLANOS_ENERGIA:
-            messagebox.showerror("Erro", f"Plano '{plano_parar}' não é suportado na versão simplificada")
+            messagebox.showerror("Erro", f"Plano '{plano_parar}' não é suportado.")
             return
 
         # Cria novo monitor
