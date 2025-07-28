@@ -580,7 +580,8 @@ class GerenciadorPlanoEnergia:
                 ["powercfg", "-setactive", guid_plano],
                 check=True,
                 capture_output=True,
-                text=True
+                text=True,
+                creationflags=subprocess.CREATE_NO_WINDOW
             )
             return True
         except subprocess.CalledProcessError as e:
