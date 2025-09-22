@@ -13,6 +13,127 @@ from pynput.keyboard import Key, KeyCode, Listener, Controller
 from pystray import Icon, MenuItem, Menu
 from PIL import Image
 
+# Gerenciador de múltiplos Ctrl+C (histórico de clipes)
+import keyboard
+import pyperclip
+
+# Classe para gerenciar histórico de clipes
+
+
+class GerenciadorClipes:
+    def __init__(self, max_clipes=9, enable_history=True, enable_paste=True, mensagens_fixas=None):
+        self.clipes = []
+        self.max_clipes = max_clipes
+        self.ultima = ""
+        self.enable_history = enable_history
+        self.enable_paste = enable_paste
+        self.mensagens_fixas = mensagens_fixas if mensagens_fixas is not None else [
+            "" for _ in range(max_clipes)]
+        self._hotkeys_registradas = False
+        self._configurar_atalhos()
+        self.thread = threading.Thread(
+            target=self._monitorar_copiar, daemon=True)
+        self.thread.start()
+
+    def atualizar_mensagens_fixas(self, msgs):
+        self.mensagens_fixas = msgs
+
+    def atualizar_flags(self, enable_history, enable_paste):
+        self.enable_history = enable_history
+        self.enable_paste = enable_paste
+        self._remover_atalhos()
+        self._configurar_atalhos()
+
+    def _remover_atalhos(self):
+        # Remove hotkeys registrados, ignorando se não existem
+        try:
+            keyboard.remove_hotkey("ctrl+0")
+        except Exception:
+            pass
+        for i in range(1, self.max_clipes+1):
+            try:
+                keyboard.remove_hotkey(f"ctrl+{i}")
+            except Exception:
+                pass
+
+    def _monitorar_copiar(self):
+        while True:
+            time.sleep(0.1)
+            if keyboard.is_pressed("ctrl+c"):
+                time.sleep(0.2)
+                atual = pyperclip.paste()
+                if atual != self.ultima and atual.strip():
+                    self.clipes.insert(0, atual)
+                    if len(self.clipes) > self.max_clipes:
+                        self.clipes.pop()
+                    # print removido
+                    self.ultima = atual
+
+    def _mostrar_historico(self):
+        if not self.enable_history:
+            return
+        janela = tk.Tk()
+        janela.title("Histórico de Clipes")
+        janela.geometry("230x300")
+        janela.resizable(False, False)
+
+        frame = ttk.Frame(janela)
+        frame.pack(fill="both", expand=True, padx=5, pady=5)
+
+        label = ttk.Label(frame, text="Histórico de Clipes",
+                          font=("Arial", 10, "bold"))
+        label.pack(pady=(0, 5))
+
+        lista = tk.Listbox(frame, height=12)
+        lista.pack(fill="both", expand=True)
+
+        for i, clipe in enumerate(self.clipes, 1):
+            texto = f"Ctrl+{i}: {clipe[:40]}{'...' if len(clipe) > 40 else ''}"
+            lista.insert(tk.END, texto)
+
+        ttk.Button(frame, text="Fechar", command=janela.destroy).pack(pady=5)
+
+        janela.attributes("-topmost", True)
+        janela.mainloop()
+
+    def _colar_slot(self, n):
+        if not self.enable_paste:
+            return
+        idx = n - 1
+        # Prioriza mensagem fixa
+        texto = ""
+        if idx < len(self.mensagens_fixas) and self.mensagens_fixas[idx]:
+            texto = self.mensagens_fixas[idx]
+        elif self.clipes:
+            if idx < len(self.clipes):
+                texto = self.clipes[idx]
+            else:
+                texto = self.clipes[-1]
+        else:
+            return
+        pyperclip.copy(texto)
+        # Simula Ctrl+V para colar o texto
+        keyboard.press_and_release('ctrl+v')
+
+    def _configurar_atalhos(self):
+        # Sempre remove antes de adicionar para garantir que não há duplicidade
+        try:
+            keyboard.remove_hotkey("ctrl+0")
+        except Exception:
+            pass
+        for i in range(1, self.max_clipes+1):
+            try:
+                keyboard.remove_hotkey(f"ctrl+{i}")
+            except Exception:
+                pass
+        if self.enable_history:
+            keyboard.add_hotkey("ctrl+0", self._mostrar_historico)
+        if self.enable_paste:
+            for i in range(1, self.max_clipes+1):
+                keyboard.add_hotkey(
+                    f"ctrl+{i}", lambda i=i: self._colar_slot(i))
+
+
 # Detecta se está rodando como executável empacotado
 if getattr(sys, 'frozen', False):
     # Rodando como executável
@@ -31,7 +152,7 @@ os.makedirs(CONFIG_DIR, exist_ok=True)
 
 DEFAULT_CONFIG = {
     "enable_calc_percent": True,
-    
+
     "atalhos": [
         {"tecla": "Key.num_lock", "comando": "calc.exe"},
         {"tecla": "Key.menu",     "comando": "notepad.exe"},
@@ -73,6 +194,7 @@ PLANOS_ENERGIA_FIXOS = {
 
 FLAG_NOVA_JANELA = subprocess.CREATE_NEW_CONSOLE if sys.platform == "win32" else 0
 
+
 def obter_caminho_recurso(caminho_relativo):
     """Obtém o caminho correto para recursos, seja rodando como script ou exe"""
     try:
@@ -80,16 +202,17 @@ def obter_caminho_recurso(caminho_relativo):
         caminho_base = os.path.join(BASE_DIR, caminho_relativo)
         if os.path.exists(caminho_base):
             return caminho_base
-        
+
         # Se não encontrar, tenta no diretório temporário do PyInstaller
         caminho_temp = os.path.join(SCRIPT_DIR, caminho_relativo)
         if os.path.exists(caminho_temp):
             return caminho_temp
-        
+
         # Fallback: retorna o caminho original
         return caminho_relativo
     except:
         return caminho_relativo
+
 
 def carregar_configuracoes(configuracao_padrao):
     if not os.path.exists(ARQUIVO_CONFIG):
@@ -104,6 +227,7 @@ def carregar_configuracoes(configuracao_padrao):
     except (json.JSONDecodeError, FileNotFoundError):
         return configuracao_padrao.copy()
 
+
 def salvar_configuracoes(configuracoes):
     try:
         with open(ARQUIVO_CONFIG, 'w', encoding='utf-8') as arquivo:
@@ -111,6 +235,7 @@ def salvar_configuracoes(configuracoes):
     except Exception:
         messagebox.showerror(
             "Erro", "Não foi possível salvar as configurações")
+
 
 def obter_titulo_janela_ativa():
     try:
@@ -122,6 +247,7 @@ def obter_titulo_janela_ativa():
         return buffer.value
     except Exception:
         return ""
+
 
 def carregar_configuracoes_main():
     if not os.path.exists(ARQUIVO_CONFIG):
@@ -135,6 +261,7 @@ def carregar_configuracoes_main():
     except (json.JSONDecodeError, FileNotFoundError):
         return DEFAULT_CONFIG.copy()
 
+
 def executar_comando(comando):
     try:
         if os.path.isfile(comando) or comando.lower().endswith('.exe'):
@@ -143,6 +270,7 @@ def executar_comando(comando):
             subprocess.Popen(comando, shell=True)
     except Exception as erro:
         pass
+
 
 class InterfaceConfigurador(tk.Tk):
     PLACEHOLDER_TECLA = "Clique e pressione tecla"
@@ -155,7 +283,8 @@ class InterfaceConfigurador(tk.Tk):
 
     def _configurar_janela(self):
         # Tenta carregar o ícone com tratamento de erro melhorado
-        caminho_icone = obter_caminho_recurso(os.path.join('icons', 'icon.ico'))
+        caminho_icone = obter_caminho_recurso(
+            os.path.join('icons', 'icon.ico'))
         if os.path.exists(caminho_icone):
             try:
                 self.iconbitmap(caminho_icone)
@@ -170,7 +299,7 @@ class InterfaceConfigurador(tk.Tk):
         self.configuracoes = carregar_configuracoes(configuracao_padrao)
         self.lista_atalhos = self.configuracoes["atalhos"]
         self.lista_monitores = self.configuracoes["monitores"]
-        
+
         self._limpar_monitores_invalidos()
 
         self.atalho_calculadora_ativo = tk.BooleanVar(
@@ -182,15 +311,15 @@ class InterfaceConfigurador(tk.Tk):
         for monitor in self.lista_monitores:
             power_on = monitor.get('power_on', '')
             power_off = monitor.get('power_off', '')
-            
+
             if power_on in OPCOES_PLANOS_ENERGIA and power_off in OPCOES_PLANOS_ENERGIA:
                 monitores_validos.append(monitor)
-        
+
         if len(monitores_validos) != len(self.lista_monitores):
             self.lista_monitores = monitores_validos
             self.configuracoes["monitores"] = monitores_validos
             salvar_configuracoes(self.configuracoes)
-            
+
             messagebox.showinfo(
                 "Limpeza de Configuração",
                 f"Alguns monitores com planos não suportados foram removidos.\n"
@@ -210,13 +339,133 @@ class InterfaceConfigurador(tk.Tk):
 
         self._construir_aba_atalhos(notebook)
         self._construir_aba_energia(notebook)
+        self._construir_aba_copias(notebook)
 
         ttk.Button(frame_principal, text="Fechar", command=self.destroy)\
             .grid(row=1, column=0, sticky="e", pady=(5, 0))
 
+    def _construir_aba_copias(self, notebook):
+        aba = ttk.Frame(notebook)
+        notebook.add(aba, text="Cópias")
+        aba.columnconfigure(0, weight=1)
+        aba.rowconfigure(0, weight=1)
+
+        self.historico_ativo_var = tk.BooleanVar(
+            value=self.configuracoes.get("enable_clip_history", True))
+        self.colagem_ativa_var = tk.BooleanVar(
+            value=self.configuracoes.get("enable_clip_paste", True))
+
+        # Flags uma embaixo da outra no topo
+        check_historico = ttk.Checkbutton(
+            aba,
+            text="Ativar histórico de clipes (Ctrl+0)",
+            variable=self.historico_ativo_var,
+            command=self._alternar_historico_ativo
+        )
+        check_historico.grid(row=0, column=0, sticky="w", padx=8, pady=(8, 2))
+        check_colagem = ttk.Checkbutton(
+            aba,
+            text="Ativar colagem rápida (Ctrl+1 a 9)",
+            variable=self.colagem_ativa_var,
+            command=self._alternar_colagem_ativa
+        )
+        check_colagem.grid(row=1, column=0, sticky="w", padx=8, pady=(2, 8))
+
+        # Slots em duas colunas, mais compacto, sem preview
+        frame_slots = ttk.LabelFrame(aba, text="Mensagens fixas por slot")
+        frame_slots.grid(row=2, column=0, sticky="ew",
+                         padx=2, pady=2, ipadx=0, ipady=0)
+        fixed_clips = self.configuracoes.get(
+            "fixed_clip_slots", ["" for _ in range(9)])
+        for i in range(9):
+            row = i % 5  # 5 linhas por coluna
+            col = i // 5  # 0 ou 1
+            label = ttk.Label(frame_slots, text=f"Ctrl+{i+1}:", width=7)
+            label.grid(row=row, column=col*2, sticky="w", padx=(2, 1), pady=1)
+            btn = ttk.Button(frame_slots, text="Editar", width=7,
+                             command=lambda idx=i: self._abrir_popup_editar_slot(idx))
+            btn.grid(row=row, column=col*2+1, sticky="e", padx=(1, 2), pady=1)
+
+    def _abrir_popup_editar_slot(self, idx):
+        popup = tk.Toplevel(self)
+        popup.title(f"Mensagem fixa - Ctrl+{idx+1}")
+        popup.geometry("400x260")
+        popup.resizable(True, True)
+        fixed_clips = self.configuracoes.get(
+            "fixed_clip_slots", ["" for _ in range(9)])
+        texto_inicial = fixed_clips[idx] if idx < len(fixed_clips) else ""
+        # Campo de texto estilo bloco de notas
+        text_area = tk.Text(popup, wrap="word",
+                            font=("Consolas", 11), undo=True)
+        text_area.pack(fill="both", expand=True, padx=8, pady=(8, 4))
+        text_area.insert("1.0", texto_inicial)
+
+        def salvar_e_fechar():
+            msgs = self.configuracoes.get(
+                "fixed_clip_slots", ["" for _ in range(9)])
+            msgs[idx] = text_area.get("1.0", "end-1c")
+            self.configuracoes["fixed_clip_slots"] = msgs
+            salvar_configuracoes(self.configuracoes)
+            if hasattr(self, "_gerenciador_clipes"):
+                self._gerenciador_clipes.atualizar_mensagens_fixas(msgs)
+            popup.destroy()
+
+        ttk.Button(popup, text="Salvar", command=salvar_e_fechar).pack(pady=8)
+        # Salva automaticamente ao fechar pelo X
+        popup.protocol("WM_DELETE_WINDOW", salvar_e_fechar)
+
+    def _abrir_popup_mensagens_fixas(self):
+        # Cria uma janela maior para editar os textos fixos
+        popup = tk.Toplevel(self)
+        popup.title("Editar mensagens fixas (Ctrl+1 a Ctrl+9)")
+        popup.geometry("400x420")
+        popup.resizable(True, True)
+        fixed_clips = self.configuracoes.get(
+            "fixed_clip_slots", ["" for _ in range(9)])
+        vars_popup = []
+        for i in range(9):
+            var = tk.StringVar(
+                value=fixed_clips[i] if i < len(fixed_clips) else "")
+            entry = ttk.Entry(popup, textvariable=var, width=44)
+            entry.grid(row=i, column=1, padx=8, pady=8)
+            ttk.Label(
+                popup, text=f"Ctrl+{i+1}:").grid(row=i, column=0, sticky="w", padx=8)
+            vars_popup.append(var)
+
+        def salvar():
+            msgs = [var.get() for var in vars_popup]
+            self.configuracoes["fixed_clip_slots"] = msgs
+            salvar_configuracoes(self.configuracoes)
+            if hasattr(self, "_gerenciador_clipes"):
+                self._gerenciador_clipes.atualizar_mensagens_fixas(msgs)
+            popup.destroy()
+        ttk.Button(popup, text="Salvar", command=salvar).grid(
+            row=9, column=0, columnspan=2, pady=16)
+
+    def _salvar_mensagens_fixas(self):
+        msgs = [var.get() for var in self.fixed_clip_vars]
+        self.configuracoes["fixed_clip_slots"] = msgs
+        salvar_configuracoes(self.configuracoes)
+        if hasattr(self, "_gerenciador_clipes"):
+            self._gerenciador_clipes.atualizar_mensagens_fixas(msgs)
+
+    def _alternar_historico_ativo(self):
+        self.configuracoes["enable_clip_history"] = self.historico_ativo_var.get()
+        salvar_configuracoes(self.configuracoes)
+        if hasattr(self, "_gerenciador_clipes"):
+            self._gerenciador_clipes.atualizar_flags(
+                self.historico_ativo_var.get(), self.colagem_ativa_var.get())
+
+    def _alternar_colagem_ativa(self):
+        self.configuracoes["enable_clip_paste"] = self.colagem_ativa_var.get()
+        salvar_configuracoes(self.configuracoes)
+        if hasattr(self, "_gerenciador_clipes"):
+            self._gerenciador_clipes.atualizar_flags(
+                self.historico_ativo_var.get(), self.colagem_ativa_var.get())
+
     def _construir_aba_atalhos(self, notebook):
         aba = ttk.Frame(notebook)
-        notebook.add(aba, text="Gerenciar Atalhos")
+        notebook.add(aba, text="Atalhos")
         aba.columnconfigure(1, weight=1)
         aba.rowconfigure(4, weight=1)
 
@@ -239,9 +488,9 @@ class InterfaceConfigurador(tk.Tk):
         ttk.Button(aba, text="…", width=3, command=self._procurar_arquivo)\
             .grid(row=1, column=2, padx=2, pady=1)
 
-        ttk.Button(aba, text="Remover", command=self._remover_atalho)\
+        ttk.Button(aba, text="Remover", width=8, command=self._remover_atalho)\
             .grid(row=2, column=0, padx=2, pady=3, sticky='w')
-        ttk.Button(aba, text="Adicionar", command=self._adicionar_atalho)\
+        ttk.Button(aba, text="Adicionar", width=12, command=self._adicionar_atalho)\
             .grid(row=2, column=1, columnspan=2, padx=2, pady=3, sticky='e')
 
         checkbox_calculadora = ttk.Checkbutton(
@@ -261,7 +510,7 @@ class InterfaceConfigurador(tk.Tk):
 
     def _construir_aba_energia(self, notebook):
         aba = ttk.Frame(notebook)
-        notebook.add(aba, text="Gerenciar Energia")
+        notebook.add(aba, text="Energia")
         aba.columnconfigure(1, weight=1)
         aba.rowconfigure(6, weight=1)
 
@@ -381,7 +630,8 @@ class InterfaceConfigurador(tk.Tk):
         self._atualizar_lista_atalhos()
 
     def _alternar_atalho_calculadora(self):
-        self.configuracoes["enable_calc_percent"] = self.atalho_calculadora_ativo.get()
+        self.configuracoes["enable_calc_percent"] = self.atalho_calculadora_ativo.get(
+        )
         salvar_configuracoes(self.configuracoes)
 
     def _procurar_arquivo(self):
@@ -422,11 +672,13 @@ class InterfaceConfigurador(tk.Tk):
         plano_parar = self.combo_plano_parar.get()
 
         if plano_iniciar not in OPCOES_PLANOS_ENERGIA:
-            messagebox.showerror("Erro", f"Plano '{plano_iniciar}' não é suportado.")
+            messagebox.showerror(
+                "Erro", f"Plano '{plano_iniciar}' não é suportado.")
             return
-        
+
         if plano_parar not in OPCOES_PLANOS_ENERGIA:
-            messagebox.showerror("Erro", f"Plano '{plano_parar}' não é suportado.")
+            messagebox.showerror(
+                "Erro", f"Plano '{plano_parar}' não é suportado.")
             return
 
         novo_monitor = {
@@ -459,6 +711,7 @@ class InterfaceConfigurador(tk.Tk):
         salvar_configuracoes(self.configuracoes)
 
         self._atualizar_lista_monitores()
+
 
 class GerenciadorAtalhos:
     def __init__(self):
@@ -524,6 +777,7 @@ class GerenciadorAtalhos:
     def iniciar_monitoramento(self):
         Listener(on_press=self.ao_pressionar_tecla).start()
 
+
 class GerenciadorPlanoEnergia:
     PRIORIDADE_PLANOS = {
         "Alto desempenho": 3,
@@ -587,6 +841,7 @@ class GerenciadorPlanoEnergia:
         except subprocess.CalledProcessError as e:
             return False
 
+
 class GerenciadorEnergia:
     def __init__(self):
         configuracoes = carregar_configuracoes_main()
@@ -596,7 +851,7 @@ class GerenciadorEnergia:
 
         self.gerenciador_plano = GerenciadorPlanoEnergia()
         self.estado_processos = {}
-        
+
         for processo in self.processos_monitorados:
             nome_processo = processo['process'].lower()
             processos_ativos = [
@@ -687,24 +942,42 @@ class GerenciadorEnergia:
 
             time.sleep(INTERVALO_MONITORAMENTO)
 
+
 def abrir_configurador(icone, item):
-    try:
-        import threading
-        def criar_interface():
+    import threading
+    def abrir_janela():
+        try:
+            global gerenciador_clipes
             aplicacao = InterfaceConfigurador(DEFAULT_CONFIG)
+            if 'gerenciador_clipes' in globals():
+                aplicacao._gerenciador_clipes = gerenciador_clipes
             aplicacao.protocol("WM_DELETE_WINDOW", aplicacao.destroy)
             aplicacao.mainloop()
-        
-        thread_interface = threading.Thread(target=criar_interface, daemon=True)
-        thread_interface.start()
+        except Exception:
+            pass
+
+    # Se já existe um root, use after; senão, crie um root oculto
+    try:
+        # Procura por instância Tk existente
+        for widget in tk._default_root.children.values():
+            if isinstance(widget, tk.Tk):
+                widget.after(0, abrir_janela)
+                return
     except Exception:
         pass
+    # Cria root oculto e agenda abertura
+    root = tk.Tk()
+    root.withdraw()
+    root.after(0, abrir_janela)
+    root.mainloop()
+
 
 def criar_icone_system_tray():
     try:
         # Usa a função melhorada para encontrar o ícone
-        caminho_icone = obter_caminho_recurso(os.path.join('icons', 'icon.ico'))
-        
+        caminho_icone = obter_caminho_recurso(
+            os.path.join('icons', 'icon.ico'))
+
         # Fallback para um ícone padrão se não encontrar
         if not os.path.exists(caminho_icone):
             # Cria um ícone simples em memória como fallback
@@ -724,6 +997,7 @@ def criar_icone_system_tray():
         print(f"Erro ao criar ícone da system tray: {e}")
         sys.exit(1)
 
+
 if __name__ == "__main__":
     try:
         gerenciador_energia = GerenciadorEnergia()
@@ -735,6 +1009,20 @@ if __name__ == "__main__":
 
         gerenciador_atalhos = GerenciadorAtalhos()
         gerenciador_atalhos.iniciar_monitoramento()
+
+        # Inicia o gerenciador de clipes conforme flags do config
+        config_main = carregar_configuracoes_main()
+        enable_history = config_main.get("enable_clip_history", True)
+        enable_paste = config_main.get("enable_clip_paste", True)
+        if enable_history or enable_paste:
+            mensagens_fixas = config_main.get(
+                "fixed_clip_slots", ["" for _ in range(9)])
+            gerenciador_clipes = GerenciadorClipes(
+                enable_history=enable_history,
+                enable_paste=enable_paste,
+                mensagens_fixas=mensagens_fixas)
+        else:
+            pass  # print removido
 
         criar_icone_system_tray()
     except Exception as e:
