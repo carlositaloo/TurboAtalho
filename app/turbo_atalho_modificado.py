@@ -55,6 +55,11 @@ class GerenciadorClipes:
                 keyboard.remove_hotkey(f"ctrl+{i}")
             except Exception:
                 pass
+            try:
+                # Mudar tecla de atalho aqui ctrl+shift
+                keyboard.remove_hotkey(f"ctrl+shift+{i}")
+            except Exception:
+                pass
 
     def _monitorar_copiar(self):
         while True:
@@ -126,12 +131,18 @@ class GerenciadorClipes:
                 keyboard.remove_hotkey(f"ctrl+{i}")
             except Exception:
                 pass
+            try:
+                # Mudar tecla de atalho aqui ctrl+shift
+                keyboard.remove_hotkey(f"ctrl+shift+{i}")
+            except Exception:
+                pass
         if self.enable_history:
             keyboard.add_hotkey("ctrl+0", self._mostrar_historico)
         if self.enable_paste:
             for i in range(1, self.max_clipes+1):
                 keyboard.add_hotkey(
-                    f"ctrl+{i}", lambda i=i: self._colar_slot(i))
+                    # Mudar tecla de atalho aqui ctrl+shift
+                    f"ctrl+shift+{i}", lambda i=i: self._colar_slot(i))
 
 
 # Detecta se está rodando como executável empacotado
@@ -945,6 +956,7 @@ class GerenciadorEnergia:
 
 def abrir_configurador(icone, item):
     import threading
+
     def abrir_janela():
         try:
             global gerenciador_clipes
