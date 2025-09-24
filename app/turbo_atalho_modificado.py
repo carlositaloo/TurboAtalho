@@ -30,6 +30,8 @@ class GerenciadorClipes:
         self.mensagens_fixas = mensagens_fixas if mensagens_fixas is not None else [
             "" for _ in range(max_clipes)]
         self._hotkeys_registradas = False
+        # Flag para ignorar clipboard alterado pelo próprio app
+        self._ignorar_proxima_copia = False
         self._configurar_atalhos()
         self.thread = threading.Thread(
             target=self._monitorar_copiar, daemon=True)
@@ -63,16 +65,17 @@ class GerenciadorClipes:
 
     def _monitorar_copiar(self):
         while True:
-            time.sleep(0.1)
-            if keyboard.is_pressed("ctrl+c"):
-                time.sleep(0.2)
-                atual = pyperclip.paste()
-                if atual != self.ultima and atual.strip():
-                    self.clipes.insert(0, atual)
-                    if len(self.clipes) > self.max_clipes:
-                        self.clipes.pop()
-                    # print removido
-                    self.ultima = atual
+            time.sleep(0.2)
+            atual = pyperclip.paste()
+            if self._ignorar_proxima_copia:
+                self._ignorar_proxima_copia = False
+                self.ultima = atual  # Atualiza para não disparar de novo
+                continue
+            if atual != self.ultima and atual.strip():
+                self.clipes.insert(0, atual)
+                if len(self.clipes) > self.max_clipes:
+                    self.clipes.pop()
+                self.ultima = atual
 
     def _mostrar_historico(self):
         if not self.enable_history:
@@ -116,6 +119,7 @@ class GerenciadorClipes:
                 texto = self.clipes[-1]
         else:
             return
+        self._ignorar_proxima_copia = True
         pyperclip.copy(texto)
         # Simula Ctrl+V para colar o texto
         keyboard.press_and_release('ctrl+v')
