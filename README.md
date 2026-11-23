@@ -3,6 +3,19 @@
 Utilitário Windows que fica na bandeja do sistema com três funções:
 atalhos de toque duplo, slots de colagem e modo jogo.
 
+<p align="center">
+  <img src="img/screenshots/atalhos_dark.png" width="250" alt="Aba Atalhos">
+  <img src="img/screenshots/colagens_dark.png" width="250" alt="Aba Colagens">
+  <img src="img/screenshots/jogos_dark.png" width="250" alt="Aba Jogos">
+</p>
+
+<p align="center">
+  <img src="img/screenshots/quadro_dark.png" width="230" alt="Quadro de colagens (Ctrl+Shift+0)">
+  &nbsp;&nbsp;
+  <img src="img/screenshots/colagens_light.png" width="250" alt="Tema claro">
+</p>
+<p align="center"><sub>Quadro de colagens (<code>Ctrl+Shift+0</code>) · o tema acompanha o claro/escuro do Windows</sub></p>
+
 ## Funcionalidades
 
 ### Atalhos
