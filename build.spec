@@ -6,7 +6,7 @@ a = Analysis(
     ['main.py'],
     pathex=[],
     binaries=[],
-    datas=[('img', 'img')],
+    datas=[('img/icon.ico', 'img')],
     hiddenimports=['keyboard', 'psutil'],
     hookspath=[],
     hooksconfig={},
