@@ -1,46 +1,66 @@
 # Turbo Atalho
 
-Utilitário Windows que roda na bandeja do sistema oferecendo três funcionalidades:
-atalhos de teclado personalizados, gerenciamento de clipes e controle automático de plano de energia.
+Utilitário Windows que fica na bandeja do sistema com três funções:
+atalhos de toque duplo, slots de colagem e modo jogo.
 
 ## Funcionalidades
 
-### Atalhos de Teclado
-- Mapeie qualquer tecla (incluindo teclas especiais como NumLock, Menu, F1–F12) para abrir programas ou executar comandos com duplo toque
-- Atalho especial: substitui automaticamente `Shift Direito` por `%` dentro da Calculadora do Windows
+### Atalhos
+- Toque **duas vezes rápido** numa tecla (NumLock, Menu, F1–F12, Home…) para abrir um programa.
+  Padrão: `NumLock` 2x abre a Calculadora (e o NumLock termina ligado).
+- `Shift direito` vira `%` dentro da Calculadora do Windows.
+- Opção **Iniciar com o Windows**.
 
-### Gerenciador de Clipes
-- Histórico automático dos últimos 9 itens copiados (`Ctrl+0` para visualizar)
-- Colagem rápida por slot: `Ctrl+Shift+1` a `Ctrl+Shift+9`
-- Mensagens fixas configuráveis por slot (independentes do histórico)
+### Colagens (9 slots)
+| Ação | Atalho |
+|------|--------|
+| Guardar o que foi copiado no próximo slot livre | `Ctrl+C` duas vezes rápido |
+| Colar o slot N | `Ctrl+Shift+1` … `Ctrl+Shift+9` |
+| Quadro com todos os slots (aperte o número para colar) | `Ctrl+Shift+0` |
+| No quadro: guardar o que está copiado / limpar não fixados | `G` / `Del` |
 
-### Gerenciador de Energia
-- Monitora processos em segundo plano e altera automaticamente o plano de energia do Windows quando um processo configurado inicia ou para
-- Define a prioridade de CPU do processo monitorado (Normal / Acima do normal / Alta)
+- Dá para segurar `Ctrl+Shift` e apertar vários números seguidos.
+- Guarda **texto e imagem**. Os slots ficam salvos e continuam lá depois de reiniciar.
+- Para imagens (print do `Win+Shift+S`, "Copiar imagem" do navegador): use **Guardar cópia**
+  (botão na aba Colagens ou `G` no quadro), que guarda o que estiver na área de transferência.
+- Cada número fica parado: só muda quando você guarda algo novo.
+- Fixe um slot (ícone de pino) para ele não ser trocado nem apagado por "Limpar não fixados".
+- Com todos os slots ocupados, a próxima cópia substitui o slot não fixado mais antigo.
+- Na aba Colagens: clique copia o slot, duplo clique edita o texto.
+
+### Jogos
+- **Prioridade** (Normal / Acima do normal / Alta) gravada no registro do Windows
+  (`Image File Execution Options\<jogo>.exe\PerfOptions`). Vale toda vez que o jogo abre,
+  mesmo com o app fechado. Pede permissão de administrador (UAC) só ao adicionar ou remover.
+- **Plano de energia**: quando o jogo abre, troca para o plano escolhido; quando fecha, volta para o plano "Fora do jogo".
+  A lista de planos vem do próprio Windows (inclui "Desempenho Máximo" se existir).
 
 ## Tecnologias
 - Python 3.13+
-- [customtkinter](https://github.com/TomSchimansky/CustomTkinter) — interface gráfica
-- [pynput](https://pynput.readthedocs.io/) — captura de teclado global
-- [keyboard](https://github.com/boppreh/keyboard) — atalhos globais de colagem
-- [pystray](https://github.com/moses-palmer/pystray) — ícone na bandeja do sistema
-- [psutil](https://github.com/giampaolo/psutil) — monitoramento de processos
-- [pyperclip](https://github.com/asweigart/pyperclip) — acesso à área de transferência
+- [PySide6](https://doc.qt.io/qtforpython-6/) (Qt) — interface, bandeja e área de transferência
+- [keyboard](https://github.com/boppreh/keyboard) — detecção de toque duplo e Ctrl+C duplo
+- `RegisterHotKey` (API do Windows) — Ctrl+Shift+0..9
+- [psutil](https://github.com/giampaolo/psutil) — detectar os jogos abertos
 
-## Instalação e Uso
+## Instalação e uso
 
-### Rodando pelo código-fonte
+### Pelo código-fonte
 Requer [uv](https://docs.astral.sh/uv/).
 ```bash
 uv sync
-uv run main.py
+uv run main.py            # inicia na bandeja
+uv run main.py --abrir    # inicia já com a janela aberta
 ```
 
 ### Gerando o executável
 ```bash
 build.bat
 ```
-O executável será gerado em `dist\TurboAtalho.exe`. Requer execução como administrador (necessário para alterar prioridade de processos e plano de energia).
+O executável fica em `dist\TurboAtalho.exe`. Não precisa rodar como administrador.
 
 ## Configurações
-As configurações ficam salvas em `%APPDATA%\TurboAtalho\config.json` e são editadas pela janela de opções acessível pelo ícone na bandeja.
+Ficam em `%APPDATA%\TurboAtalho\`:
+- `config.json` — atalhos, slots, jogos
+- `slots\N.png` — imagens guardadas nos slots
+
+Configurações da versão 3 são migradas automaticamente (cópia de segurança em `config.v1.json`).

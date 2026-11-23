@@ -2,30 +2,20 @@
 # build.spec — PyInstaller spec para Turbo Atalho
 # Compilar com:  pyinstaller build.spec
 
-import os
-import customtkinter
-
 a = Analysis(
     ['main.py'],
     pathex=[],
     binaries=[],
-    datas=[
-        ('img', 'img'),
-        (os.path.dirname(customtkinter.__file__), 'customtkinter'),
-    ],
-    hiddenimports=[
-        'pynput.keyboard._win32',
-        'pynput.mouse._win32',
-        'pystray._win32',
-        'keyboard',
-        'psutil',
-        'pyperclip',
-        'PIL._tkinter_finder',
-    ],
+    datas=[('img', 'img')],
+    hiddenimports=['keyboard', 'psutil'],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    excludes=[],
+    excludes=[
+        'tkinter',
+        'PySide6.QtNetwork', 'PySide6.QtQml', 'PySide6.QtQuick', 'PySide6.QtSql',
+        'PySide6.QtOpenGL', 'PySide6.QtPdf', 'PySide6.QtWebEngineCore', 'PySide6.QtMultimedia',
+    ],
     noarchive=False,
 )
 
@@ -41,7 +31,7 @@ exe = EXE(
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
-    upx=True,
+    upx=False,
     upx_exclude=[],
     runtime_tmpdir=None,
     console=False,
@@ -51,5 +41,7 @@ exe = EXE(
     codesign_identity=None,
     entitlements_file=None,
     icon='img/icon.ico',
-    uac_admin=True,
+    # Sem admin: a prioridade dos jogos pede UAC só na hora de salvar,
+    # e "Iniciar com o Windows" não funciona com apps que exigem admin.
+    uac_admin=False,
 )
